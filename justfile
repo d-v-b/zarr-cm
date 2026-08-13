@@ -16,6 +16,10 @@ default:
 sync:
     uv sync --all-groups --reinstall-package zarr-cm
 
+# Re-resolve uv.lock. Pass --upgrade to move pinned versions forward.
+lock *args:
+    uv lock {{ args }}
+
 # Syncs first so the recorded version matches HEAD after a fresh commit.
 [doc("Run every check that CI runs: lint, pylint, type check, tests")]
 check: sync lint pylint typecheck test
