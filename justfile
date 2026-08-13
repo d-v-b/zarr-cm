@@ -5,6 +5,10 @@
 #
 # The recipes that use the project environment all ask for the same dependency
 # groups (`--all-groups`), so running them in any order never re-syncs .venv.
+# `test-ci` is the one exception: CI starts from a clean environment per job,
+# so it installs the test group alone rather than paying for the docs group.
+
+coverage_args := "-ra --cov --cov-report=xml --cov-report=term --durations=20"
 
 # List the available recipes
 default:
@@ -24,13 +28,17 @@ lock *args:
 [doc("Run every check that CI runs: lint, pylint, type check, tests")]
 check: sync lint pylint typecheck test
 
-# Run the pre-commit hooks (ruff, prettier, pyright on src, ...) over all files
+# Run the prek hooks (ruff, prettier, pyright on src, ...) over all files
 lint *args:
     uvx prek run --all-files --show-diff-on-failure {{ args }}
 
-# Install the pre-commit hooks into .git/hooks so they run on every commit
+# Install the hooks into .git/hooks so they run on every commit
 lint-install:
     uvx prek install
+
+# Update the pinned hook revisions in .pre-commit-config.yaml
+update-hooks *args:
+    uvx prek update {{ args }}
 
 # Run Pylint over the package
 pylint *args:
@@ -44,9 +52,13 @@ typecheck *args:
 test *args:
     uv run --all-groups pytest {{ args }}
 
-# Run the test suite with coverage, as CI does
+# Run the test suite with coverage
 test-cov *args:
-    uv run --all-groups pytest -ra --cov --cov-report=xml --cov-report=term --durations=20 {{ args }}
+    uv run --all-groups pytest {{ coverage_args }} {{ args }}
+
+# Run the test suite the way CI does, with only the test group installed
+test-ci *args:
+    uv run --no-default-groups --group test pytest {{ coverage_args }} {{ args }}
 
 # Run the test suite against another Python version, in a throwaway environment
 test-python version *args:

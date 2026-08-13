@@ -1,7 +1,5 @@
-ci:
-  autoupdate_commit_msg: "chore(deps): update pre-commit hooks"
-  autofix_commit_msg: "style: pre-commit fixes"
-  autoupdate_schedule: "monthly"
+# Hooks are run by prek (https://prek.j178.dev), both locally via `just lint`
+# and in CI. Refresh the pinned revisions below with `just update-hooks`.
 
 exclude: ^.cruft.json|.copier-answers.yml$
 

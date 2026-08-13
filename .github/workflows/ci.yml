@@ -78,11 +78,10 @@ jobs:
       - uses: astral-sh/setup-uv@v7
       - uses: extractions/setup-just@v4
 
-      - name: Install package
-        run: just sync
-
+      # `just test-ci` installs the package and the test group on the way in,
+      # so there is no separate install step.
       - name: Test package
-        run: just test-cov
+        run: just test-ci
 
       - name: Upload coverage report
         uses: codecov/codecov-action@v7
