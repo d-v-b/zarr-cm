@@ -52,12 +52,11 @@ repos:
     hooks:
       - id: pyright
         # tests/ is not an installed package in the isolated hook env, so pyright
-        # cannot resolve `import zarr_cm` there; tests are type-checked by the
-        # `typecheck` nox session where the package is installed. Keep the
-        # commit-time hook scoped to src.
-        files: src|noxfile.py
+        # cannot resolve `import zarr_cm` there; tests are type-checked by
+        # `just typecheck`, where the package is installed. Keep the commit-time
+        # hook scoped to src.
+        files: src
         additional_dependencies:
-          - nox
           - pytest
           - pytest-examples
           - types-jsonschema

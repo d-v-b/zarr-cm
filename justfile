@@ -43,13 +43,15 @@ lint-install:
 update-hooks *args:
     uvx prek update {{ args }}
 
-# Run Pylint over the package
+# Pylint needs the package importable, so it runs against an install of it
+# rather than as a hook. Slower than the prek hooks, hence not part of `lint`.
+[doc("Run Pylint over the package")]
 pylint *args:
-    uvx nox -s pylint -- {{ args }}
+    uv run --isolated --no-default-groups --with "pylint>=3.2" pylint zarr_cm {{ args }}
 
-# Type check src/ and tests/ with pyright, as the typecheck nox session does
+# Type check src/ and tests/ with pyright
 typecheck *args:
-    uv run --all-groups --with nox pyright {{ args }}
+    uv run --all-groups pyright {{ args }}
 
 # Run the test suite
 test *args:
@@ -98,5 +100,5 @@ check-upstream:
 
 # Remove build, docs, and tool cache artifacts
 clean:
-    rm -rf build dist site .coverage coverage.xml .pytest_cache .mypy_cache .ruff_cache .nox
+    rm -rf build dist site .coverage coverage.xml .pytest_cache .ruff_cache
     find . -name '__pycache__' -type d -prune -exec rm -rf {} +
