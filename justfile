@@ -10,6 +10,9 @@
 
 coverage_args := "-ra --cov --cov-report=xml --cov-report=term --durations=20"
 
+# Every Python this package supports, per the classifiers in pyproject.toml.
+python_versions := "3.11 3.12 3.13 3.14 pypy3.11"
+
 # List the available recipes
 default:
     @just --list
@@ -60,9 +63,22 @@ test-cov *args:
 test-ci *args:
     uv run --no-default-groups --group test pytest {{ coverage_args }} {{ args }}
 
-# Run the test suite against another Python version, in a throwaway environment
+# The environment is isolated from .venv, so it can skip the docs group without
+# forcing a re-sync the way the in-project recipes would.
+[doc("Run the test suite against another Python version, in a throwaway environment")]
 test-python version *args:
-    uv run --isolated --all-groups --python {{ version }} pytest {{ args }}
+    uv run --isolated --no-default-groups --group test --python {{ version }} pytest {{ args }}
+
+# uv downloads any interpreter that is not already installed. CI covers the
+# ends of this range plus pypy; this runs the whole sweep locally.
+[doc("Run the test suite against every supported Python version")]
+test-all *args:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    for version in {{ python_versions }}; do
+        echo "--- Python $version ---"
+        just test-python "$version" {{ args }}
+    done
 
 # Serve the docs locally with live reload
 docs *args:
