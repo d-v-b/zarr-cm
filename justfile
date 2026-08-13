@@ -10,8 +10,9 @@
 
 coverage_args := "-ra --cov --cov-report=xml --cov-report=term --durations=20"
 
-# Every Python this package supports, per the classifiers in pyproject.toml.
-python_versions := "3.11 3.12 3.13 3.14 pypy3.11"
+# PyPy is not expressible as a classifier, so `test-all` appends the one CI runs
+# to the CPython versions read out of pyproject.toml.
+pypy_version := "pypy3.11"
 
 # List the available recipes
 default:
@@ -65,6 +66,11 @@ test-cov *args:
 test-ci *args:
     uv run --no-default-groups --group test pytest {{ coverage_args }} {{ args }}
 
+# Print the CPython versions this package claims to support, read out of the
+# `Programming Language :: Python :: X.Y` classifiers in pyproject.toml.
+python-versions:
+    @uv run --no-project python -c 'import re,tomllib,pathlib;d=tomllib.loads(pathlib.Path("pyproject.toml").read_text());print(" ".join(c.split()[-1] for c in d["project"]["classifiers"] if re.fullmatch(r"Programming Language :: Python :: 3\.\d+", c)))'
+
 # The environment is isolated from .venv, so it can skip the docs group without
 # forcing a re-sync the way the in-project recipes would.
 [doc("Run the test suite against another Python version, in a throwaway environment")]
@@ -77,7 +83,7 @@ test-python version *args:
 test-all *args:
     #!/usr/bin/env bash
     set -euo pipefail
-    for version in {{ python_versions }}; do
+    for version in $(just python-versions) {{ pypy_version }}; do
         echo "--- Python $version ---"
         just test-python "$version" {{ args }}
     done
