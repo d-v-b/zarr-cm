@@ -34,6 +34,10 @@ jobs:
       - uses: pre-commit/action@v3.0.1
         with:
           extra_args: --hook-stage manual --all-files
+
+      - name: Check that uv.lock is up to date
+        run: uv lock --check
+
       - name: Run Pylint
         run: uvx nox -s pylint -- --output-format=github
       - name: Type-check (src + tests)
