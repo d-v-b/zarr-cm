@@ -32,6 +32,9 @@ theme:
 markdown_extensions:
   - pymdownx.highlight
   - pymdownx.superfences
+  # Lets docs pages include files by path (--8<--); the docs/examples pages use
+  # it to embed each example's README.md and source from examples/.
+  - pymdownx.snippets
 
 plugins:
   autorefs: {}
@@ -53,3 +56,10 @@ plugins:
 nav:
   - Home: index.md
   - Python API: api.md
+  - Examples:
+      - examples/index.md
+      - examples/spatial.md
+      - examples/proj.md
+      - examples/multiscales.md
+      - examples/license.md
+      - examples/uom.md
