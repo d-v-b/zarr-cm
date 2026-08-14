@@ -19,6 +19,10 @@ examples/
 
 ## The Examples
 
+- [composition](composition/README.md) -- several conventions on one node,
+  GeoZarr group/array placement, and whole-document validation
+- [reading](reading/README.md) -- the consumer workflow: UUID-based detection,
+  revision handling, and defensive reads with spec defaults
 - [spatial](spatial/README.md) -- spatial coordinate metadata, with a real
   cross-revision migration (r2 to r3)
 - [proj](proj/README.md) -- coordinate reference systems, including a migration

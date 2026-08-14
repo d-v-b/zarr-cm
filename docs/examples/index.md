@@ -10,6 +10,10 @@ Each example lives in its own subdirectory of
 [`examples/`](https://github.com/zarr-conventions/zarr-cm/tree/main/examples)
 with a README and its source, embedded in the pages below.
 
+- [composition](composition.md) — several conventions on one node, GeoZarr
+  group/array placement, and whole-document validation
+- [reading](reading.md) — the consumer workflow: UUID-based detection, revision
+  handling, and defensive reads with spec defaults
 - [spatial](spatial.md) — spatial coordinate metadata, with a real
   cross-revision migration (r2 to r3)
 - [proj](proj.md) — coordinate reference systems, including a migration that

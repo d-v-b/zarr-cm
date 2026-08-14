@@ -58,6 +58,8 @@ nav:
   - Python API: api.md
   - Examples:
       - examples/index.md
+      - examples/composition.md
+      - examples/reading.md
       - examples/spatial.md
       - examples/proj.md
       - examples/multiscales.md
