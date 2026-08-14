@@ -44,8 +44,7 @@ def declares_spatial(attrs: dict[str, Any]) -> bool:
     """
     conventions = attrs.get("zarr_conventions") or []
     return any(
-        isinstance(cmo, dict) and cmo.get("uuid") == spatial.UUID
-        for cmo in conventions
+        isinstance(cmo, dict) and cmo.get("uuid") == spatial.UUID for cmo in conventions
     )
 
 
