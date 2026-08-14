@@ -1,8 +1,8 @@
 # Uom
 
 This example demonstrates the
-[uom](https://github.com/clbarnes/zarr-convention-uom) convention, which
-records units of measurement for a Zarr array as UCUM codes.
+[uom](https://github.com/clbarnes/zarr-convention-uom) convention, which records
+units of measurement for a Zarr array as UCUM codes.
 
 The example shows how to:
 
@@ -10,9 +10,8 @@ The example shows how to:
   carrying a UCUM unit
 - Detect the revision of a stored document with `uom.detect`
 - Handle a document declaring an unrecognized `schema_url` defensively
-- Scaffold a migration: uom has a single revision today, so the migrate step
-  is an identity re-stamp, written the way a real cross-revision migration
-  would be
+- Scaffold a migration: uom has a single revision today, so the migrate step is
+  an identity re-stamp, written the way a real cross-revision migration would be
 
 ## Running the Example
 

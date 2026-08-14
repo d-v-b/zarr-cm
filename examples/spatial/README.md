@@ -8,9 +8,8 @@ The example shows how to:
 
 - Create a stand-alone attributes dict at the latest revision with
   `spatial.create_convention_attrs` (dimensions and a bounding box)
-- Detect the revision a stored document was written under with
-  `spatial.detect`, and refuse automatic extraction when the revision is
-  unrecognized
+- Detect the revision a stored document was written under with `spatial.detect`,
+  and refuse automatic extraction when the revision is unrecognized
 - Read a document written under an older revision by pinning `revision=` on
   `spatial.extract` and `spatial.validate`
 - Migrate a document from r2 to the latest revision by extracting under the

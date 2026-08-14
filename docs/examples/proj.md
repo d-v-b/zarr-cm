@@ -2,6 +2,6 @@
 
 ## Source Code
 
-```python
+```{.python}
 --8<-- "examples/proj/proj.py"
 ```

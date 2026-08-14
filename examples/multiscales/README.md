@@ -1,8 +1,8 @@
 # Multiscales
 
 This example demonstrates the
-[multiscales](https://github.com/zarr-conventions/multiscales) convention,
-which records the layout of a multiscale image pyramid on a Zarr group.
+[multiscales](https://github.com/zarr-conventions/multiscales) convention, which
+records the layout of a multiscale image pyramid on a Zarr group.
 
 The example shows how to:
 
@@ -13,8 +13,8 @@ The example shows how to:
   detection reports it rather than validating it as something it is not
 - Round-trip the data through `multiscales.extract` and re-insertion
 
-Multiscales currently ships a single revision (r2, at upstream v0.1), so
-there is no cross-revision migration to show.
+Multiscales currently ships a single revision (r2, at upstream v0.1), so there
+is no cross-revision migration to show.
 
 ## Running the Example
 

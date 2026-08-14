@@ -2,6 +2,6 @@
 
 ## Source Code
 
-```python
+```{.python}
 --8<-- "examples/multiscales/multiscales.py"
 ```
