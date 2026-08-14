@@ -23,12 +23,20 @@ pip install zarr-cm
 
 Each convention module provides the following operations:
 
-- **`create`** creates convention metadata.
+- **`create`** creates convention metadata: the convention's own keys, nothing
+  else.
+- **`create_convention_attrs`** creates a complete stand-alone attributes dict:
+  that same convention data plus the `zarr_conventions` entry declaring it.
 - **`validate`** checks convention metadata for validity.
-- **`insert`** adds convention metadata to a Zarr attributes dict and returns a
-  new dict with a `zarr_conventions` entry.
+- **`insert`** composes: it adds convention metadata to an attributes dict that
+  already exists, returning a new dict with the `zarr_conventions` entry
+  appended. Reach for `create_convention_attrs` when there is nothing to compose
+  with.
 - **`extract`** removes convention metadata from an attributes dict and returns
   the remaining attributes and the extracted convention data.
+- **`validate_group_metadata`**, **`validate_array_metadata`** and
+  **`validate_node_metadata`** validate a whole `zarr.json` document. See
+  [Validating whole metadata documents](#validating-whole-metadata-documents).
 
 <!-- blacken-docs:off -->
 <!-- prettier-ignore -->
@@ -112,6 +120,89 @@ from zarr_cm import spatial
 footprint = spatial.create(bbox=[-180.0, -90.0, 180.0, 90.0])
 print(footprint)
 #> {'spatial:bbox': [-180.0, -90.0, 180.0, 90.0]}
+
+# As a complete attributes dict, declaring the convention it uses:
+attributes = spatial.create_convention_attrs(bbox=[-180.0, -90.0, 180.0, 90.0])
+print(sorted(attributes))
+#> ['spatial:bbox', 'zarr_conventions']
+```
+
+<!-- blacken-docs:on -->
+
+## Validating whole metadata documents
+
+`validate` sees only an attributes dict, so it cannot check the rules that
+depend on which kind of node the attributes belong to. The node-level entry
+points take a whole `zarr.json` document and can: `spatial` requires
+`spatial:dimensions` on arrays but not on groups, and `multiscales` applies to
+groups only.
+
+`validate_node_metadata` dispatches on the document's `node_type` to
+`validate_array_metadata` or `validate_group_metadata`. Every convention module
+provides all three.
+
+The validators also **narrow the document's type**. A convention-bearing
+document is represented as `Metadata[AttrsT]`, a generic union of array and
+group TypedDicts whose type parameter states what is known about `attributes`.
+`Metadata[Mapping[str, JSONValue]]` is the wide form, and validating against a
+convention narrows it to that convention's attrs type. The node discriminator
+and base array fields remain typed too, so a signature can require a validated
+document:
+
+<!-- blacken-docs:off -->
+<!-- prettier-ignore -->
+```python
+from collections.abc import Mapping
+
+from zarr_cm import JSONValue, GroupMetadata, SpatialConventionAttrs, spatial
+
+def write_group(node: GroupMetadata[SpatialConventionAttrs]) -> str:
+    # attributes are typed as spatial's TypedDict, not an untyped JSON object
+    return f"writing, bbox={node['attributes'].get('spatial:bbox')}"
+
+attributes = spatial.create_convention_attrs(bbox=[0.0, 0.0, 1.0, 1.0])
+group: GroupMetadata[Mapping[str, JSONValue]] = {
+    "zarr_format": 3,
+    "node_type": "group",
+    "attributes": attributes,
+}
+
+print(write_group(spatial.validate_group_metadata(group)))
+#> writing, bbox=[0.0, 0.0, 1.0, 1.0]
+```
+
+<!-- blacken-docs:on -->
+
+Handing `write_group` the wide `group` without validating is a type error.
+Validation returns a new document with its `attributes` tree normalized to
+ordinary JSON containers. The input mapping is not mutated. The returned mapping
+is still mutable, so the narrowed type records that validation _happened_, not
+that later mutations remain valid.
+
+Two boundaries are deliberate. The `attributes` parameter is covariant, so a
+narrowed document still flows anywhere the wide form is accepted and validators
+chain. Narrowing does not _accumulate_: there is no intersection type, so
+validating against spatial and then proj yields proj's type alone.
+
+<!-- blacken-docs:off -->
+<!-- prettier-ignore -->
+```python
+from zarr_cm import spatial
+
+attributes = spatial.create_convention_attrs(bbox=[-180.0, -90.0, 180.0, 90.0])
+
+# A group may carry a footprint with no dimensions.
+group = {"zarr_format": 3, "node_type": "group", "attributes": attributes}
+print(spatial.validate_node_metadata(group)["node_type"])
+#> group
+
+# The same attributes on an array are not valid.
+array = {**group, "node_type": "array"}
+try:
+    spatial.validate_array_metadata(array)
+except ValueError as exc:
+    print(exc)
+    #> 'spatial:dimensions' is required on array nodes
 ```
 
 <!-- blacken-docs:on -->

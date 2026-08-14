@@ -1,8 +1,8 @@
 """Structural contract for convention modules dispatched by the registry.
 
-Defines :class:`ConventionModule` and statically asserts that every convention
+Defines `ConventionModule` and statically asserts that every convention
 module (and revision submodule) satisfies it. A signature or constant drift in
-any dispatch target fails ``pyright src/`` at the corresponding ``_check_*`` line.
+any dispatch target fails `pyright src/` at the corresponding `_check_*` line.
 """
 
 from __future__ import annotations
@@ -17,20 +17,23 @@ if TYPE_CHECKING:
 class ConventionModule(Protocol):
     """Structural contract every convention module (and revision submodule) satisfies.
 
-    Pins the dispatch surface: the constants ``UUID``/``SCHEMA_URL``/``SPEC_URL``/
-    ``CMO``/``CONVENTION_KEYS`` and the operations ``create``/``insert``/``extract``/
-    ``validate``. The callable signatures themselves are pinned by the typed
-    dispatch protocols in the aggregate modules, while this structural protocol
-    verifies each convention module exposes the shared names.
+    Pins the dispatch surface: the constants `UUID`/`SCHEMA_URL`/`SPEC_URL`/
+    `CMO`/`CONVENTION_KEYS`, the attributes-level operations
+    `create`/`create_convention_attrs`/`insert`/`extract`/`validate`, and the
+    node-level operations `validate_group_metadata`/`validate_array_metadata`/
+    `validate_node_metadata`.
+    The callable signatures themselves are pinned by the typed dispatch protocols
+    in the aggregate modules, while this structural protocol verifies each
+    convention module exposes the shared names.
     """
 
     # The uppercase property names below deliberately mirror the module-level
     # constants they pin (UUID/SCHEMA_URL/...), so snake_case does not apply.
     # pylint: disable=invalid-name
 
-    # Read-only properties (not plain attributes): a plain ``x: str`` Protocol
+    # Read-only properties (not plain attributes): a plain `x: str` Protocol
     # member is mutable and therefore invariant, which would reject the modules'
-    # ``Final``/``Literal`` constants (e.g. ``UUID: Final = "689b..."``). Declaring
+    # `Final`/`Literal` constants (e.g. `UUID: Final = "689b..."`). Declaring
     # them as read-only properties makes the member covariant so the literal
     # constants satisfy the contract.
     @property
@@ -45,15 +48,23 @@ class ConventionModule(Protocol):
     def CONVENTION_KEYS(self) -> set[str]: ...
 
     # Likewise read-only: the modules expose these as plain functions, which are
-    # only assignable to an invariant ``object`` member via a covariant property.
+    # only assignable to an invariant `object` member via a covariant property.
     @property
     def create(self) -> object: ...
+    @property
+    def create_convention_attrs(self) -> object: ...
     @property
     def insert(self) -> object: ...
     @property
     def extract(self) -> object: ...
     @property
     def validate(self) -> object: ...
+    @property
+    def validate_group_metadata(self) -> object: ...
+    @property
+    def validate_array_metadata(self) -> object: ...
+    @property
+    def validate_node_metadata(self) -> object: ...
 
 
 if TYPE_CHECKING:
