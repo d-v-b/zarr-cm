@@ -14,14 +14,16 @@ from zarr_cm import proj, spatial
 
 
 def stored_documents() -> dict[str, dict[str, Any]]:
-    """Three attribute dicts as they might arrive from stores in the wild."""
+    """Four attribute dicts as they might arrive from stores in the wild."""
     current = spatial.create_convention_attrs(
         dimensions=["y", "x"], registration="node"
     )
     # Several deployed writers copied the draft-era spec examples, which
     # declared a `refs/tags/v1` schema_url that was never released; documents
-    # carrying it exist in the wild today.
-    legacy = {
+    # carrying it exist in the wild today. That URL is an alias of the r2
+    # revision (see `spatial.r2.ALIAS_SCHEMA_URLS`), so this document detects
+    # and validates as r2.
+    draft_era = {
         "zarr_conventions": [
             {
                 "uuid": spatial.UUID,
@@ -32,8 +34,25 @@ def stored_documents() -> dict[str, dict[str, Any]]:
         "spatial:dimensions": ["y", "x"],
         "spatial:transform": [30.0, 0.0, 323400.0, 0.0, -30.0, 4268400.0],
     }
+    # A revision this library has never heard of -- from the future, or from a
+    # fork. No revision recognizes it, so only defensive reading remains.
+    unknown = {
+        "zarr_conventions": [
+            {
+                "uuid": spatial.UUID,
+                "name": "spatial:",
+                "schema_url": "https://example.com/spatial/v9/schema.json",
+            }
+        ],
+        "spatial:dimensions": ["y", "x"],
+    }
     plain = {"description": "no conventions here"}
-    return {"current": dict(current), "legacy": legacy, "plain": plain}
+    return {
+        "current": dict(current),
+        "draft_era": draft_era,
+        "unknown": unknown,
+        "plain": plain,
+    }
 
 
 def declares_spatial(attrs: dict[str, Any]) -> bool:

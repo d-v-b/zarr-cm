@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
+from collections.abc import Set as AbstractSet
 from typing import NamedTuple, cast
 
 from ._core import (
@@ -77,8 +78,15 @@ def node_convention_data(
     context: NodeContext,
     cmo: ConventionMetadataObject,
     convention_keys: set[str],
+    *,
+    schema_urls: AbstractSet[str],
 ) -> JSONDict:
-    """Extract a declared convention's keys from a prepared node context."""
+    """Extract a declared convention's keys from a prepared node context.
+
+    *schema_urls* is the calling revision's input type: every schema_url it
+    recognizes as its own identity. The declaration's schema_url must be a
+    member -- the one this revision writes, or any it reads.
+    """
     uuid = cmo.get("uuid")
     declaration = next(
         (item for item in context.declarations if item.get("uuid") == uuid), None
@@ -88,16 +96,11 @@ def node_convention_data(
         msg = f"the {name!r} convention is not declared in this document's 'zarr_conventions'"
         raise ValueError(msg)
     declared_schema_url = declaration.get("schema_url")
-    expected_schema_url = cmo.get("schema_url")
-    if (
-        declared_schema_url is not None
-        and expected_schema_url is not None
-        and declared_schema_url != expected_schema_url
-    ):
+    if declared_schema_url is not None and declared_schema_url not in schema_urls:
         name = cmo.get("name") or uuid
         msg = (
             f"the {name!r} convention declares schema_url "
-            f"{declared_schema_url!r}, not {expected_schema_url!r}"
+            f"{declared_schema_url!r}, which this revision does not recognize"
         )
         raise ValueError(msg)
     return {
@@ -110,12 +113,17 @@ def node_convention_data(
 def _select_revision(
     declaration: ConventionMetadataObject | None,
     *,
-    schema_url_by_revision: Mapping[str, str],
+    revision_by_schema_url: Mapping[str, str],
     latest: str,
     convention_name: str,
     requested: str | None,
     declaration_required: bool,
 ) -> str:
+    """Pick a revision label for a declaration.
+
+    *revision_by_schema_url* is the convention's input type: every schema_url
+    any revision recognizes, mapped to that revision's label.
+    """
     if declaration is None:
         if declaration_required:
             msg = (
@@ -127,11 +135,9 @@ def _select_revision(
 
     schema_url = declaration.get("schema_url")
     if requested is not None:
-        expected_url = schema_url_by_revision.get(requested)
         if (
             schema_url is not None
-            and expected_url is not None
-            and schema_url != expected_url
+            and revision_by_schema_url.get(schema_url) != requested
         ):
             msg = (
                 f"the {convention_name!r} convention declares schema_url "
@@ -141,9 +147,8 @@ def _select_revision(
         return requested
     if schema_url is None:
         return latest
-    by_url = {url: label for label, url in schema_url_by_revision.items()}
     try:
-        return by_url[schema_url]
+        return revision_by_schema_url[schema_url]
     except KeyError:
         msg = (
             f"the {convention_name!r} convention declares an unsupported "
@@ -156,7 +161,7 @@ def resolve_attributes_revision(
     attrs: Mapping[str, JSONValue],
     *,
     uuid: str,
-    schema_url_by_revision: Mapping[str, str],
+    revision_by_schema_url: Mapping[str, str],
     latest: str,
     convention_name: str,
     requested: str | None = None,
@@ -179,7 +184,7 @@ def resolve_attributes_revision(
     )
     return _select_revision(
         declaration,
-        schema_url_by_revision=schema_url_by_revision,
+        revision_by_schema_url=revision_by_schema_url,
         latest=latest,
         convention_name=convention_name,
         requested=requested,
@@ -191,7 +196,7 @@ def resolve_context_revision(
     context: NodeContext,
     *,
     uuid: str,
-    schema_url_by_revision: Mapping[str, str],
+    revision_by_schema_url: Mapping[str, str],
     latest: str,
     convention_name: str,
     requested: str | None = None,
@@ -202,7 +207,7 @@ def resolve_context_revision(
     )
     return _select_revision(
         declaration,
-        schema_url_by_revision=schema_url_by_revision,
+        revision_by_schema_url=revision_by_schema_url,
         latest=latest,
         convention_name=convention_name,
         requested=requested,

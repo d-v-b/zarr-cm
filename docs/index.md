@@ -106,6 +106,31 @@ print(old)
 
 <!-- blacken-docs:on -->
 
+### Schema URL aliases
+
+Each revision of a convention writes exactly one `schema_url` — its `SCHEMA_URL`
+— but may recognize others as its own identity: its `ALIAS_SCHEMA_URLS`. Every
+convention package aggregates the two into `REVISION_BY_SCHEMA_URL`, a
+`{url: revision}` map of everything a document may declare and still be
+understood, with each canonical URL a member by construction. `detect` looks the
+declared URL up there; validation runs under whichever revision it maps to;
+documents zarr-cm writes always carry the canonical `SCHEMA_URL`.
+
+The aliases are not hypothetical. Between the conventions' first drafts
+(December 2025) and their `v0.1` releases (June 2026), the spec READMEs
+published example declarations whose `schema_url` pointed at a `refs/tags/v1`
+tag that was never created. Tools that integrated during that window —
+rioxarray, topozarr, and others — copied those examples faithfully, so documents
+declaring the dead URLs exist in the wild and are still being written. Those
+URLs are aliases of the surviving `r2` revisions, so such documents detect and
+validate normally. Working with real data, even when its declarations are
+imperfect, is part of this library's job.
+
+The recognized set is enumerated, not open: a URL outside it still fails
+validation with `unsupported schema_url`, so unknown _future_ revisions are
+never silently misread. The [reading example](examples/reading.md) walks the
+full flow.
+
 ### Group-level spatial metadata
 
 The `spatial:` spec requires `spatial:dimensions` only on arrays, so a group may

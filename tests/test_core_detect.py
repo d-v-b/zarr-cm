@@ -10,7 +10,9 @@ if TYPE_CHECKING:
     from zarr_cm import JSONDict
 
 UUID = "test-uuid-1234"
-URLS = {"r1": "https://example/r1.json", "r2": "https://example/r2.json"}
+# The input type: every recognized schema_url -> the revision that reads it.
+URLS = {"https://example/r1.json": "r1", "https://example/r2.json": "r2"}
+R1_URL, R2_URL = "https://example/r1.json", "https://example/r2.json"
 
 
 def _attrs(schema_url: str | None) -> JSONDict:
@@ -21,8 +23,8 @@ def _attrs(schema_url: str | None) -> JSONDict:
 
 
 def test_returns_label_for_known_url() -> None:
-    assert resolve_revision_label(_attrs(URLS["r1"]), UUID, URLS, "demo") == "r1"
-    assert resolve_revision_label(_attrs(URLS["r2"]), UUID, URLS, "demo") == "r2"
+    assert resolve_revision_label(_attrs(R1_URL), UUID, URLS, "demo") == "r1"
+    assert resolve_revision_label(_attrs(R2_URL), UUID, URLS, "demo") == "r2"
 
 
 def test_returns_none_for_present_but_unknown_url() -> None:

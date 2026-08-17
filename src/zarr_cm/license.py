@@ -59,9 +59,15 @@ CMO: Final[ConventionMetadataObject] = {
     "description": "License specifier for Zarr data",
 }
 
+
+ALIAS_SCHEMA_URLS: Final[frozenset[str]] = frozenset()
+"""Other schema_urls this revision recognizes: none besides `SCHEMA_URL`."""
+
 CONVENTION_KEYS: Final = {"license"}
 
-_SCHEMA_URL_BY_REVISION: Final[dict[str, str]] = {"v1": SCHEMA_URL}
+_REVISION_BY_SCHEMA_URL: Final[dict[str, str]] = dict.fromkeys(
+    {SCHEMA_URL, *ALIAS_SCHEMA_URLS}, "v1"
+)
 
 
 def detect(attrs: Mapping[str, JSONValue]) -> str | None:
@@ -71,7 +77,7 @@ def detect(attrs: Mapping[str, JSONValue]) -> str | None:
     known schema_url, `None` if present with an unrecognized schema_url, and
     raises `ValueError` if the convention is absent.
     """
-    return resolve_revision_label(attrs, UUID, _SCHEMA_URL_BY_REVISION, "license")
+    return resolve_revision_label(attrs, UUID, _REVISION_BY_SCHEMA_URL, "license")
 
 
 def create(
@@ -171,7 +177,9 @@ def validate(data: Mapping[str, JSONValue]) -> LicenseAttrs:
 
 def _validate_context(context: NodeContext) -> None:
     """Validate license against an already prepared node."""
-    data = node_convention_data(context, CMO, CONVENTION_KEYS)
+    data = node_convention_data(
+        context, CMO, CONVENTION_KEYS, schema_urls={SCHEMA_URL, *ALIAS_SCHEMA_URLS}
+    )
     if "license" not in data:
         msg = "'license' is required"
         raise ValueError(msg)

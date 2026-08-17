@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
+from collections.abc import Set as AbstractSet
 from typing import (
     TYPE_CHECKING,
     Final,
@@ -288,10 +289,37 @@ def extract_convention(
     return remaining, convention_data
 
 
+def build_revision_by_schema_url(
+    revisions: Mapping[str, tuple[str, AbstractSet[str]]],
+) -> dict[str, str]:
+    """Build a convention's `{schema_url: revision label}` map from its revisions.
+
+    *revisions* maps each label to `(SCHEMA_URL, ALIAS_SCHEMA_URLS)`. Every URL
+    -- canonical or alias -- becomes a key. Because `detect` and validation both
+    look the declared URL up here, a URL claimed by two revisions would resolve
+    to whichever happened to be inserted last; that is an ambiguity in the
+    convention's own definition, so this refuses to build the map rather than
+    let it be silently shadowed.
+
+    Raises `ValueError` if any URL is claimed by more than one revision.
+    """
+    result: dict[str, str] = {}
+    for label, (canonical, aliases) in revisions.items():
+        for url in (canonical, *aliases):
+            if url in result and result[url] != label:
+                msg = (
+                    f"schema_url {url!r} is claimed by revisions "
+                    f"{result[url]!r} and {label!r}; a URL must identify one revision"
+                )
+                raise ValueError(msg)
+            result[url] = label
+    return result
+
+
 def resolve_revision_label(
     attrs: Mapping[str, JSONValue],
     uuid: str,
-    schema_url_by_revision: dict[str, str],
+    revision_by_schema_url: Mapping[str, str],
     convention_name: str,
 ) -> str | None:
     """Return the revision label a document claims for a convention.
@@ -305,33 +333,32 @@ def resolve_revision_label(
     if not convention_present(attrs, uuid):
         msg = f"convention {convention_name!r} is not present in attrs"
         raise ValueError(msg)
-    return detect_revision(attrs, uuid, schema_url_by_revision)
+    return detect_revision(attrs, uuid, revision_by_schema_url)
 
 
 def detect_revision(
     attrs: Mapping[str, JSONValue],
     uuid: str,
-    schema_url_by_revision: dict[str, str],
+    revision_by_schema_url: Mapping[str, str],
 ) -> str | None:
-    """Return the revision label whose pinned schema_url matches the document's CMO.
+    """Return the revision label whose recognized schema_urls include the document's.
 
     Looks for a convention-metadata object in `attrs['zarr_conventions']`
-    whose `uuid` matches *uuid*. If found, returns the revision label whose
-    `schema_url` equals that CMO's `schema_url`. Returns `None` if the
-    convention is absent, or present but carrying an unrecognized schema_url
-    (e.g. a legacy or future URL). Callers must decide how to handle that
-    uncertainty; validation must not silently select the latest revision.
+    whose `uuid` matches *uuid*. If found, looks its `schema_url` up in
+    *revision_by_schema_url* -- the convention's input type, every schema_url
+    any revision recognizes mapped to that revision's label. Returns `None` if
+    the convention is absent, or present but carrying a schema_url no revision
+    recognizes (a future or foreign URL). Callers must decide how to handle
+    that uncertainty; validation must not silently select the latest revision.
 
     Entries in `zarr_conventions` are assumed to be CMO dicts (consistent
-    with the rest of this module). Revisions are assumed to have distinct
-    `schema_url` values; if two share one, the inverse mapping is ambiguous.
+    with the rest of this module).
     """
-    by_url = {url: label for label, url in schema_url_by_revision.items()}
     for cmo in validate_convention_metadata_objects(attrs.get("zarr_conventions")):
         if cmo.get("uuid") == uuid:
             schema_url = cmo.get("schema_url")
             if isinstance(schema_url, str):
-                return by_url.get(schema_url)
+                return revision_by_schema_url.get(schema_url)
     return None
 
 

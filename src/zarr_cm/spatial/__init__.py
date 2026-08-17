@@ -24,6 +24,7 @@ from zarr_cm._core import (
     JSONValue,
     Metadata,
     NodeMetadataInput,
+    build_revision_by_schema_url,
     resolve_revision_label,
 )
 from zarr_cm._node import (
@@ -62,6 +63,7 @@ __all__ = [
     "CMO",
     "CONVENTION_KEYS",
     "LATEST",
+    "REVISION_BY_SCHEMA_URL",
     "SCHEMA_URL",
     "SPEC_URL",
     "UUID",
@@ -87,6 +89,7 @@ __all__ = [
 
 class _RevisionModule(NamedTuple):
     SCHEMA_URL: str
+    ALIAS_SCHEMA_URLS: frozenset[str]
     create: typing.Callable[..., typing.Mapping[str, JSONValue]]
     insert: typing.Callable[..., JSONDict]
     validate: typing.Callable[..., typing.Mapping[str, JSONValue]]
@@ -98,6 +101,7 @@ class _RevisionModule(NamedTuple):
 _REVISIONS: Final[dict[str, _RevisionModule]] = {
     "r2": _RevisionModule(
         _r2.SCHEMA_URL,
+        _r2.ALIAS_SCHEMA_URLS,
         _r2.create,
         _r2.insert,
         _r2.validate,
@@ -107,6 +111,7 @@ _REVISIONS: Final[dict[str, _RevisionModule]] = {
     ),
     "r3": _RevisionModule(
         _r3.SCHEMA_URL,
+        _r3.ALIAS_SCHEMA_URLS,
         _r3.create,
         _r3.insert,
         _r3.validate,
@@ -121,16 +126,31 @@ LATEST: Final = "r3"
 r2 = _r2
 r3 = _r3
 
-_SCHEMA_URL_BY_REVISION: Final[dict[str, str]] = {
-    label: mod.SCHEMA_URL for label, mod in _REVISIONS.items()
-}
+REVISION_BY_SCHEMA_URL: Final[dict[str, str]] = build_revision_by_schema_url(
+    {
+        label: (mod.SCHEMA_URL, mod.ALIAS_SCHEMA_URLS)
+        for label, mod in _REVISIONS.items()
+    }
+)
+"""Every schema_url this convention recognizes, mapped to its revision label.
+
+The convention's *input type*: what a document may declare and still be
+understood. Each revision contributes its `SCHEMA_URL` -- the one it writes,
+the *output type* -- plus its `ALIAS_SCHEMA_URLS`, so the canonical URL is a
+member of the recognized set by construction, not by convention. Built by
+`build_revision_by_schema_url`, which refuses a URL claimed by two revisions, so
+the map can never be silently shadowed. The draft-era `refs/tags/v1` URLs the specs published before their v0.1 release
+live here, so documents from writers that copied those examples detect and
+validate normally. A URL outside this map is unrecognized: `detect` reports
+`None`, and validation refuses rather than guessing.
+"""
 
 
 def _resolve_read_revision(attrs: Mapping[str, JSONValue], revision: str | None) -> str:
     return resolve_attributes_revision(
         attrs,
         uuid=UUID,
-        schema_url_by_revision=_SCHEMA_URL_BY_REVISION,
+        revision_by_schema_url=REVISION_BY_SCHEMA_URL,
         latest=LATEST,
         convention_name="spatial:",
         requested=revision,
@@ -144,7 +164,7 @@ def detect(attrs: Mapping[str, JSONValue]) -> str | None:
     present but at an unrecognized revision. Raises `ValueError` if the spatial
     convention is absent from *attrs*.
     """
-    return resolve_revision_label(attrs, UUID, _SCHEMA_URL_BY_REVISION, "spatial")
+    return resolve_revision_label(attrs, UUID, REVISION_BY_SCHEMA_URL, "spatial")
 
 
 def _revision(label: str) -> _RevisionModule:
@@ -340,7 +360,7 @@ def validate_group_metadata(
     selected = resolve_context_revision(
         context,
         uuid=UUID,
-        schema_url_by_revision=_SCHEMA_URL_BY_REVISION,
+        revision_by_schema_url=REVISION_BY_SCHEMA_URL,
         latest=LATEST,
         convention_name="spatial:",
         requested=revision,
@@ -385,7 +405,7 @@ def validate_array_metadata(
     selected = resolve_context_revision(
         context,
         uuid=UUID,
-        schema_url_by_revision=_SCHEMA_URL_BY_REVISION,
+        revision_by_schema_url=REVISION_BY_SCHEMA_URL,
         latest=LATEST,
         convention_name="spatial:",
         requested=revision,
