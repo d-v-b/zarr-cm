@@ -4,7 +4,7 @@ from typing import TYPE_CHECKING
 
 import pytest
 
-from zarr_cm._core import resolve_revision_label
+from zarr_cm._core import detect_revision, resolve_revision_label
 
 if TYPE_CHECKING:
     from zarr_cm import JSONDict
@@ -44,3 +44,19 @@ def test_raises_when_convention_absent() -> None:
 def test_returns_none_when_cmo_has_no_schema_url() -> None:
     # Present by UUID but the CMO carries no schema_url at all -> unrecognized.
     assert resolve_revision_label(_attrs(None), UUID, URLS, "demo") is None
+
+
+def test_detect_revision_returns_none_when_convention_absent() -> None:
+    # The lower-level lookup does not raise on absence (that is
+    # resolve_revision_label's job); it reports "no revision" as None.
+    assert detect_revision({"zarr_conventions": []}, UUID, URLS) is None
+    assert detect_revision({}, UUID, URLS) is None
+    other = {"zarr_conventions": [{"uuid": "someone-else", "schema_url": R1_URL}]}
+    assert detect_revision(other, UUID, URLS) is None
+
+
+def test_detect_revision_matches_schema_url_only_declaration() -> None:
+    assert (
+        detect_revision({"zarr_conventions": [{"schema_url": R2_URL}]}, UUID, URLS)
+        == "r2"
+    )

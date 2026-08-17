@@ -25,6 +25,7 @@ from zarr_cm._core import (
     JSONValue,
     Metadata,
     NodeMetadataInput,
+    declares_convention,
     extract_convention,
     insert_convention,
 )
@@ -95,6 +96,11 @@ URLs: between the specs' first drafts and their v0.1 releases, the spec READMEs
 published example declarations carrying a `refs/tags/v1` schema_url that was
 never created, and deployed writers copied them.
 """
+
+RECOGNIZED_SCHEMA_URLS: Final[frozenset[str]] = frozenset(
+    {SCHEMA_URL, *ALIAS_SCHEMA_URLS}
+)
+"""Every schema_url this revision reads as its own: `SCHEMA_URL` plus aliases."""
 
 CONVENTION_KEYS: Final = {
     "spatial:dimensions",
@@ -179,7 +185,9 @@ def insert(
     attrs: Mapping[str, JSONValue], data: SpatialAttrs, *, overwrite: bool = False
 ) -> JSONDict:
     """Insert spatial (r2) convention metadata into an attributes dict."""
-    return insert_convention(attrs, CMO, data, overwrite=overwrite)
+    return insert_convention(
+        attrs, CMO, data, overwrite=overwrite, schema_urls=RECOGNIZED_SCHEMA_URLS
+    )
 
 
 def extract(
@@ -189,7 +197,7 @@ def extract(
     remaining, convention_data = extract_convention(
         attrs,
         CONVENTION_KEYS,
-        lambda cmo: cmo.get("uuid") == UUID,
+        lambda cmo: declares_convention(cmo, UUID, RECOGNIZED_SCHEMA_URLS),
     )
     return remaining, cast("SpatialAttrs", convention_data)
 
@@ -264,7 +272,7 @@ def _validate_context(context: NodeContext) -> SpatialAttrs:
     """Validate spatial against an already prepared node."""
     data = validate(
         node_convention_data(
-            context, CMO, CONVENTION_KEYS, schema_urls={SCHEMA_URL, *ALIAS_SCHEMA_URLS}
+            context, CMO, CONVENTION_KEYS, schema_urls=RECOGNIZED_SCHEMA_URLS
         )
     )
     if context.node_type == "array" and "spatial:dimensions" not in data:
