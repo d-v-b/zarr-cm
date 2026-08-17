@@ -50,7 +50,7 @@ dependencies = [
 Homepage = "https://github.com/zarr-conventions/zarr-cm"
 "Bug Tracker" = "https://github.com/zarr-conventions/zarr-cm/issues"
 Discussions = "https://github.com/zarr-conventions/zarr-cm/discussions"
-Changelog = "https://github.com/zarr-conventions/zarr-cm/releases"
+Changelog = "https://zarr-cm.readthedocs.io/en/latest/release-notes/"
 
 
 [dependency-groups]
