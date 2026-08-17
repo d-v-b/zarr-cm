@@ -72,6 +72,23 @@ CMO: Final[ConventionMetadataObject] = {
     "description": "Coordinate reference system information for geospatial data",
 }
 
+
+ALIAS_SCHEMA_URLS: Final[frozenset[str]] = frozenset(
+    {
+        # Both spellings exist in the wild: the repo was renamed geo-proj -> proj.
+        "https://raw.githubusercontent.com/zarr-conventions/geo-proj/refs/tags/v1/schema.json",
+        "https://raw.githubusercontent.com/zarr-conventions/proj/refs/tags/v1/schema.json",
+    }
+)
+"""Other schema_urls this revision recognizes as its own identity.
+
+`SCHEMA_URL` is what this revision writes; a document may declare it *or* any
+member here and still be read as this revision. The members are the draft-era
+URLs: between the specs' first drafts and their v0.1 releases, the spec READMEs
+published example declarations carrying a `refs/tags/v1` schema_url that was
+never created, and deployed writers copied them.
+"""
+
 CONVENTION_KEYS: Final = {"proj:code", "proj:wkt2", "proj:projjson"}
 
 _CODE_PATTERN: Final = re.compile(r"^[A-Z]+:[0-9]+$")
@@ -166,7 +183,11 @@ def validate(data: Mapping[str, JSONValue]) -> GeoProjAttrs:
 
 def _validate_context(context: NodeContext) -> None:
     """Validate proj against an already prepared node."""
-    validate(node_convention_data(context, CMO, CONVENTION_KEYS))
+    validate(
+        node_convention_data(
+            context, CMO, CONVENTION_KEYS, schema_urls={SCHEMA_URL, *ALIAS_SCHEMA_URLS}
+        )
+    )
 
 
 def validate_group_metadata(

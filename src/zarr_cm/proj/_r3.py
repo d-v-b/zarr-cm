@@ -72,6 +72,10 @@ CMO: Final[ConventionMetadataObject] = {
     "description": "Coordinate reference system information for geospatial data",
 }
 
+
+ALIAS_SCHEMA_URLS: Final[frozenset[str]] = frozenset()
+"""Other schema_urls this revision recognizes: none besides `SCHEMA_URL`."""
+
 CONVENTION_KEYS: Final = {"proj:code", "proj:wkt2", "proj:projjson"}
 
 _CODE_PATTERN: Final = re.compile(r"^[^:]+:[^:]+$")
@@ -168,7 +172,11 @@ def validate(data: Mapping[str, JSONValue]) -> GeoProjAttrs:
 
 def _validate_context(context: NodeContext) -> None:
     """Validate proj against an already prepared node."""
-    validate(node_convention_data(context, CMO, CONVENTION_KEYS))
+    validate(
+        node_convention_data(
+            context, CMO, CONVENTION_KEYS, schema_urls={SCHEMA_URL, *ALIAS_SCHEMA_URLS}
+        )
+    )
 
 
 def validate_group_metadata(

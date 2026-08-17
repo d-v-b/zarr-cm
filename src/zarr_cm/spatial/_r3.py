@@ -81,6 +81,10 @@ CMO: Final[ConventionMetadataObject] = {
     "description": "Spatial coordinate information",
 }
 
+
+ALIAS_SCHEMA_URLS: Final[frozenset[str]] = frozenset()
+"""Other schema_urls this revision recognizes: none besides `SCHEMA_URL`."""
+
 CONVENTION_KEYS: Final = {
     "spatial:dimensions",
     "spatial:bbox",
@@ -247,7 +251,11 @@ def validate(data: Mapping[str, JSONValue]) -> SpatialAttrs:
 
 def _validate_context(context: NodeContext) -> SpatialAttrs:
     """Validate spatial against an already prepared node."""
-    data = validate(node_convention_data(context, CMO, CONVENTION_KEYS))
+    data = validate(
+        node_convention_data(
+            context, CMO, CONVENTION_KEYS, schema_urls={SCHEMA_URL, *ALIAS_SCHEMA_URLS}
+        )
+    )
     if context.node_type == "array" and "spatial:dimensions" not in data:
         msg = "'spatial:dimensions' is required on array nodes"
         raise ValueError(msg)

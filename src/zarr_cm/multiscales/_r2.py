@@ -96,6 +96,21 @@ CMO: Final[ConventionMetadataObject] = {
     "description": "Multiscale layout of zarr datasets",
 }
 
+
+ALIAS_SCHEMA_URLS: Final[frozenset[str]] = frozenset(
+    {
+        "https://raw.githubusercontent.com/zarr-conventions/multiscales/refs/tags/v1/schema.json",
+    }
+)
+"""Other schema_urls this revision recognizes as its own identity.
+
+`SCHEMA_URL` is what this revision writes; a document may declare it *or* any
+member here and still be read as this revision. The members are the draft-era
+URLs: between the specs' first drafts and their v0.1 releases, the spec READMEs
+published example declarations carrying a `refs/tags/v1` schema_url that was
+never created, and deployed writers copied them.
+"""
+
 CONVENTION_KEYS: Final = {"multiscales"}
 _PATH_PATTERN: Final = re.compile(r"^(?!/)(?!.*(\.\.))([^/]+(/[^/]+)*)$")
 
@@ -234,7 +249,9 @@ def validate(data: Mapping[str, JSONValue]) -> MultiscalesAttrs:
 
 def _validate_context(context: NodeContext) -> None:
     """Validate multiscales against an already prepared node."""
-    raw = node_convention_data(context, CMO, CONVENTION_KEYS)
+    raw = node_convention_data(
+        context, CMO, CONVENTION_KEYS, schema_urls={SCHEMA_URL, *ALIAS_SCHEMA_URLS}
+    )
     if context.node_type == "array":
         msg = "the 'multiscales' convention does not apply to array nodes"
         raise ValueError(msg)

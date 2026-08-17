@@ -81,6 +81,21 @@ CMO: Final[ConventionMetadataObject] = {
     "description": "Spatial coordinate information",
 }
 
+
+ALIAS_SCHEMA_URLS: Final[frozenset[str]] = frozenset(
+    {
+        "https://raw.githubusercontent.com/zarr-conventions/spatial/refs/tags/v1/schema.json",
+    }
+)
+"""Other schema_urls this revision recognizes as its own identity.
+
+`SCHEMA_URL` is what this revision writes; a document may declare it *or* any
+member here and still be read as this revision. The members are the draft-era
+URLs: between the specs' first drafts and their v0.1 releases, the spec READMEs
+published example declarations carrying a `refs/tags/v1` schema_url that was
+never created, and deployed writers copied them.
+"""
+
 CONVENTION_KEYS: Final = {
     "spatial:dimensions",
     "spatial:bbox",
@@ -247,7 +262,11 @@ def validate(data: Mapping[str, JSONValue]) -> SpatialAttrs:
 
 def _validate_context(context: NodeContext) -> SpatialAttrs:
     """Validate spatial against an already prepared node."""
-    data = validate(node_convention_data(context, CMO, CONVENTION_KEYS))
+    data = validate(
+        node_convention_data(
+            context, CMO, CONVENTION_KEYS, schema_urls={SCHEMA_URL, *ALIAS_SCHEMA_URLS}
+        )
+    )
     if context.node_type == "array" and "spatial:dimensions" not in data:
         msg = "'spatial:dimensions' is required on array nodes"
         raise ValueError(msg)

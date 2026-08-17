@@ -12,17 +12,21 @@ The example shows how to:
   URLs have both changed over the conventions' history; some deployed readers
   match by name, which those changes can break.)
 - Detect the declared revision with `spatial.detect`, and validate under it when
-  it is recognized
+  it is recognized — including wild documents whose draft-era `refs/tags/v1`
+  URLs are members of a surviving revision's input set
+  (`REVISION_BY_SCHEMA_URL`)
 - Read defensively when the revision is unrecognized: interpret keys directly,
   applying the defaults the spec defines (`spatial:registration` defaults to
   `"pixel"`, `spatial:transform_type` to `"affine"`) and the proj convention's
   `wkt2` → `code` → `projjson` fallback order
 - Skip cleanly when the convention is not declared at all
 
-The unrecognized-revision document is not hypothetical: the draft-era convention
+Two of the stored documents are grounded in real data. The draft-era convention
 specs published example declarations with a `refs/tags/v1` schema URL that was
 never released (the specs shipped as `v0.1`), and tools that integrated during
-that window write documents carrying it today.
+that window write documents carrying it today — those URLs are aliases of the
+surviving `r2` revision, so such documents detect and validate normally. The
+defensive path remains for genuinely unknown revisions: future ones, or forks.
 
 ## Running the Example
 
