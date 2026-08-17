@@ -12,6 +12,10 @@ concurrency:
   cancel-in-progress: true
 
 env:
+  # `just` is installed per job via `uvx --from rust-just==$JUST_VERSION`, from
+  # PyPI. Pinned so every job runs the same just; bump deliberately. The
+  # justfile needs >=1.38 for its `[doc(...)]` attributes.
+  JUST_VERSION: "1.58.0"
   # Many color libraries just need this variable to be set to any value.
   # Set it to 3 to support 8-bit color graphics (256 colors per channel)
   # for libraries that care about the value set.
@@ -30,7 +34,6 @@ jobs:
           python-version: "3.x"
 
       - uses: astral-sh/setup-uv@v7
-      - uses: extractions/setup-just@v4
 
       # `just lint` runs prek, so cache its hook environments the way
       # pre-commit/action used to cache pre-commit's.
@@ -40,16 +43,20 @@ jobs:
           key: prek-${{ runner.os }}-${{ hashFiles('.pre-commit-config.yaml') }}
 
       - name: Lint
-        run: just lint --hook-stage manual
+        run:
+          uvx --from rust-just==${{ env.JUST_VERSION }} just lint --hook-stage
+          manual
 
       - name: Check that uv.lock is up to date
-        run: just lock --check
+        run: uvx --from rust-just==${{ env.JUST_VERSION }} just lock --check
 
       - name: Run Pylint
-        run: just pylint --output-format=github
+        run:
+          uvx --from rust-just==${{ env.JUST_VERSION }} just pylint
+          --output-format=github
 
       - name: Type-check (src + tests)
-        run: just typecheck
+        run: uvx --from rust-just==${{ env.JUST_VERSION }} just typecheck
 
   checks:
     name: Check Python ${{ matrix.python-version }} on ${{ matrix.runs-on }}
@@ -76,12 +83,11 @@ jobs:
           allow-prereleases: true
 
       - uses: astral-sh/setup-uv@v7
-      - uses: extractions/setup-just@v4
 
       # `just test-ci` installs the package and the test group on the way in,
       # so there is no separate install step.
       - name: Test package
-        run: just test-ci
+        run: uvx --from rust-just==${{ env.JUST_VERSION }} just test-ci
 
       - name: Upload coverage report
         uses: codecov/codecov-action@v7

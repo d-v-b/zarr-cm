@@ -5,6 +5,10 @@ on:
     - cron: "0 6 * * 1"
   workflow_dispatch:
 
+env:
+  # Keep in step with ci.yml.
+  JUST_VERSION: "1.58.0"
+
 jobs:
   check-upstream:
     name: Detect schema drift against upstream main
@@ -17,7 +21,6 @@ jobs:
           python-version: "3.11"
 
       - uses: astral-sh/setup-uv@v7
-      - uses: extractions/setup-just@v4
 
       - name: Check for upstream schema drift
-        run: just check-upstream
+        run: uvx --from rust-just==${{ env.JUST_VERSION }} just check-upstream
