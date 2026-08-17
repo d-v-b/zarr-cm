@@ -12,6 +12,7 @@ from ._core import (
     JSONDict,
     JSONValue,
     NodeType,
+    find_declaration,
     validate_convention_metadata_objects,
     validate_json_object,
 )
@@ -85,11 +86,15 @@ def node_convention_data(
 
     *schema_urls* is the calling revision's input type: every schema_url it
     recognizes as its own identity. The declaration's schema_url must be a
-    member -- the one this revision writes, or any it reads.
+    member -- the one this revision writes, or any it reads. A declaration may
+    identify the convention by `uuid` or, lacking one, by a recognized
+    `schema_url` alone.
     """
     uuid = cmo.get("uuid")
-    declaration = next(
-        (item for item in context.declarations if item.get("uuid") == uuid), None
+    declaration = (
+        None
+        if uuid is None
+        else find_declaration(context.declarations, uuid, schema_urls)
     )
     if uuid is None or declaration is None:
         name = cmo.get("name") or uuid or "<unnamed>"
@@ -172,15 +177,10 @@ def resolve_attributes_revision(
         # data under an explicitly selected revision. Full-node validation uses
         # resolve_context_revision, which checks the declaration for consistency.
         return requested
-    declaration = next(
-        (
-            item
-            for item in validate_convention_metadata_objects(
-                attrs.get("zarr_conventions")
-            )
-            if item.get("uuid") == uuid
-        ),
-        None,
+    declaration = find_declaration(
+        validate_convention_metadata_objects(attrs.get("zarr_conventions")),
+        uuid,
+        revision_by_schema_url,
     )
     return _select_revision(
         declaration,
@@ -202,9 +202,7 @@ def resolve_context_revision(
     requested: str | None = None,
 ) -> str:
     """Resolve the declared convention revision for a prepared node."""
-    declaration = next(
-        (item for item in context.declarations if item.get("uuid") == uuid), None
-    )
+    declaration = find_declaration(context.declarations, uuid, revision_by_schema_url)
     return _select_revision(
         declaration,
         revision_by_schema_url=revision_by_schema_url,

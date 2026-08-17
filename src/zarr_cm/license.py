@@ -17,6 +17,7 @@ from zarr_cm._core import (
     JSONValue,
     Metadata,
     NodeMetadataInput,
+    declares_convention,
     extract_convention,
     insert_convention,
     resolve_revision_label,
@@ -63,9 +64,14 @@ CMO: Final[ConventionMetadataObject] = {
 ALIAS_SCHEMA_URLS: Final[frozenset[str]] = frozenset()
 """Other schema_urls this revision recognizes: none besides `SCHEMA_URL`."""
 
+RECOGNIZED_SCHEMA_URLS: Final[frozenset[str]] = frozenset(
+    {SCHEMA_URL, *ALIAS_SCHEMA_URLS}
+)
+"""Every schema_url this revision reads as its own: `SCHEMA_URL` plus aliases."""
+
 CONVENTION_KEYS: Final = {"license"}
 
-_REVISION_BY_SCHEMA_URL: Final[dict[str, str]] = dict.fromkeys(
+REVISION_BY_SCHEMA_URL: Final[dict[str, str]] = dict.fromkeys(
     {SCHEMA_URL, *ALIAS_SCHEMA_URLS}, "v1"
 )
 
@@ -77,7 +83,7 @@ def detect(attrs: Mapping[str, JSONValue]) -> str | None:
     known schema_url, `None` if present with an unrecognized schema_url, and
     raises `ValueError` if the convention is absent.
     """
-    return resolve_revision_label(attrs, UUID, _REVISION_BY_SCHEMA_URL, "license")
+    return resolve_revision_label(attrs, UUID, REVISION_BY_SCHEMA_URL, "license")
 
 
 def create(
@@ -134,6 +140,7 @@ def insert(
         CMO,
         {"license": data},
         overwrite=overwrite,
+        schema_urls=RECOGNIZED_SCHEMA_URLS,
     )
 
 
@@ -144,7 +151,7 @@ def extract(
     remaining, convention_data = extract_convention(
         attrs,
         CONVENTION_KEYS,
-        lambda cmo: cmo.get("uuid") == UUID,
+        lambda cmo: declares_convention(cmo, UUID, RECOGNIZED_SCHEMA_URLS),
     )
     if not convention_data:
         return remaining, LicenseAttrs()
@@ -178,7 +185,7 @@ def validate(data: Mapping[str, JSONValue]) -> LicenseAttrs:
 def _validate_context(context: NodeContext) -> None:
     """Validate license against an already prepared node."""
     data = node_convention_data(
-        context, CMO, CONVENTION_KEYS, schema_urls={SCHEMA_URL, *ALIAS_SCHEMA_URLS}
+        context, CMO, CONVENTION_KEYS, schema_urls=RECOGNIZED_SCHEMA_URLS
     )
     if "license" not in data:
         msg = "'license' is required"

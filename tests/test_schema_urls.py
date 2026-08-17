@@ -13,6 +13,8 @@ set still fails validation (`test_contracts` pins that separately).
 
 from __future__ import annotations
 
+import json
+from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 import pytest
@@ -22,6 +24,8 @@ from zarr_cm import multiscales, proj, spatial
 
 if TYPE_CHECKING:
     from zarr_metadata import ZarrV3GroupMetadataJSON
+
+SCHEMAS = Path(__file__).parent / "schemas"
 
 # As written by rioxarray (rioxarray/_convention/zarr.py): the geo-proj
 # spelling predates the repo's rename to proj.
@@ -184,3 +188,72 @@ def test_map_construction_refuses_a_shared_url() -> None:
     assert build_revision_by_schema_url(
         {"r2": ("https://example/r2.json", frozenset({"https://example/r2.json"}))}
     ) == {"https://example/r2.json": "r2"}
+
+
+# The URLs upstream *tells* writers to declare for the v0.1 releases: the
+# `$id` of each published schema and the `schema_url` in every README example.
+# Each tag points at the very commit the r3 snapshots pin, so a document
+# declaring the tag URL must read as r3.
+PROJ_V01_TAG_URL = (
+    "https://raw.githubusercontent.com/zarr-conventions/proj/refs/tags/v0.1/schema.json"
+)
+SPATIAL_V01_TAG_URL = "https://raw.githubusercontent.com/zarr-conventions/spatial/refs/tags/v0.1/schema.json"
+
+
+def upstream_readme_attrs() -> dict[str, Any]:
+    """Attributes exactly as the upstream proj/spatial READMEs show them."""
+    return {
+        "zarr_conventions": [
+            {"uuid": proj.UUID, "schema_url": PROJ_V01_TAG_URL, "name": "proj:"},
+            {
+                "uuid": spatial.UUID,
+                "schema_url": SPATIAL_V01_TAG_URL,
+                "name": "spatial:",
+            },
+        ],
+        "proj:code": "EPSG:4326",
+        "spatial:dimensions": ["y", "x"],
+        "spatial:bbox": [-180.0, -90.0, 180.0, 90.0],
+    }
+
+
+def test_v01_tag_urls_match_the_published_schema_ids() -> None:
+    """The alias is the schema's own `$id`: the vendored snapshots agree."""
+    for path, url in (
+        ("proj-r3.json", PROJ_V01_TAG_URL),
+        ("spatial-r3.json", SPATIAL_V01_TAG_URL),
+    ):
+        schema = json.loads((SCHEMAS / path).read_text())
+        assert schema["$id"] == url
+
+
+def test_v01_tag_urls_detect_as_r3() -> None:
+    attrs = upstream_readme_attrs()
+    assert proj.detect(attrs) == "r3"
+    assert spatial.detect(attrs) == "r3"
+    assert proj.REVISION_BY_SCHEMA_URL[PROJ_V01_TAG_URL] == "r3"
+    assert spatial.REVISION_BY_SCHEMA_URL[SPATIAL_V01_TAG_URL] == "r3"
+    assert zarr_cm.detect_revisions(attrs) == {"proj": "r3", "spatial": "r3"}
+
+
+def test_v01_tag_documents_validate_and_extract() -> None:
+    attrs = upstream_readme_attrs()
+    assert proj.validate(attrs).get("proj:code") == "EPSG:4326"
+    assert spatial.validate(attrs).get("spatial:bbox") == [-180.0, -90.0, 180.0, 90.0]
+    assert zarr_cm.validate_all(attrs) is attrs
+    remaining, extracted = zarr_cm.extract_all(attrs)
+    assert set(extracted) == {"proj", "spatial"}
+    assert remaining == {}
+
+
+def test_v01_tag_documents_validate_at_node_level() -> None:
+    node: ZarrV3GroupMetadataJSON = {
+        "zarr_format": 3,
+        "node_type": "group",
+        "attributes": upstream_readme_attrs(),
+    }
+    proj.validate_group_metadata(node)
+    spatial.validate_group_metadata(node)
+    proj.validate_group_metadata(node, revision="r3")
+    with pytest.raises(ValueError, match="does not match revision 'r2'"):
+        spatial.validate_group_metadata(node, revision="r2")

@@ -33,6 +33,7 @@ from zarr_cm._core import (
     JSONValue,
     Metadata,
     NodeMetadataInput,
+    declares_convention,
     extract_convention,
     insert_convention,
     validate_json_object,
@@ -111,6 +112,11 @@ published example declarations carrying a `refs/tags/v1` schema_url that was
 never created, and deployed writers copied them.
 """
 
+RECOGNIZED_SCHEMA_URLS: Final[frozenset[str]] = frozenset(
+    {SCHEMA_URL, *ALIAS_SCHEMA_URLS}
+)
+"""Every schema_url this revision reads as its own: `SCHEMA_URL` plus aliases."""
+
 CONVENTION_KEYS: Final = {"multiscales"}
 _PATH_PATTERN: Final = re.compile(r"^(?!/)(?!.*(\.\.))([^/]+(/[^/]+)*)$")
 
@@ -155,6 +161,7 @@ def insert(
         CMO,
         {"multiscales": data},
         overwrite=overwrite,
+        schema_urls=RECOGNIZED_SCHEMA_URLS,
     )
 
 
@@ -165,7 +172,7 @@ def extract(
     remaining, convention_data = extract_convention(
         attrs,
         CONVENTION_KEYS,
-        lambda cmo: cmo.get("uuid") == UUID,
+        lambda cmo: declares_convention(cmo, UUID, RECOGNIZED_SCHEMA_URLS),
     )
     if not convention_data:
         return remaining, MultiscalesAttrs(layout=[])
@@ -250,7 +257,7 @@ def validate(data: Mapping[str, JSONValue]) -> MultiscalesAttrs:
 def _validate_context(context: NodeContext) -> None:
     """Validate multiscales against an already prepared node."""
     raw = node_convention_data(
-        context, CMO, CONVENTION_KEYS, schema_urls={SCHEMA_URL, *ALIAS_SCHEMA_URLS}
+        context, CMO, CONVENTION_KEYS, schema_urls=RECOGNIZED_SCHEMA_URLS
     )
     if context.node_type == "array":
         msg = "the 'multiscales' convention does not apply to array nodes"

@@ -28,6 +28,7 @@ from ._core import (
     JSONValue,
     Metadata,
     NodeMetadataInput,
+    find_declaration,
     validate_convention_metadata_object,
     validate_convention_metadata_objects,
     validate_json_object,
@@ -78,6 +79,7 @@ class _ConventionModule(NamedTuple):
     UUID: str
     CMO: ConventionMetadataObject
     CONVENTION_KEYS: set[str]
+    REVISION_BY_SCHEMA_URL: Mapping[str, str]
     validate: typing.Callable[..., object]
     insert: typing.Callable[..., JSONDict]
     extract: typing.Callable[..., tuple[JSONDict, object]]
@@ -94,6 +96,7 @@ _REGISTRY: Final[dict[CanonicalConventionName, _ConventionModule]] = {
         proj.UUID,
         proj.CMO,
         proj.CONVENTION_KEYS,
+        proj.REVISION_BY_SCHEMA_URL,
         proj.validate,
         proj.insert,
         proj.extract,
@@ -106,6 +109,7 @@ _REGISTRY: Final[dict[CanonicalConventionName, _ConventionModule]] = {
         spatial.UUID,
         spatial.CMO,
         spatial.CONVENTION_KEYS,
+        spatial.REVISION_BY_SCHEMA_URL,
         spatial.validate,
         spatial.insert,
         spatial.extract,
@@ -118,6 +122,7 @@ _REGISTRY: Final[dict[CanonicalConventionName, _ConventionModule]] = {
         multiscales.UUID,
         multiscales.CMO,
         multiscales.CONVENTION_KEYS,
+        multiscales.REVISION_BY_SCHEMA_URL,
         multiscales.validate,
         multiscales.insert,
         multiscales.extract,
@@ -130,6 +135,7 @@ _REGISTRY: Final[dict[CanonicalConventionName, _ConventionModule]] = {
         license_.UUID,
         license_.CMO,
         license_.CONVENTION_KEYS,
+        license_.REVISION_BY_SCHEMA_URL,
         license_.validate,
         license_.insert,
         license_.extract,
@@ -139,6 +145,7 @@ _REGISTRY: Final[dict[CanonicalConventionName, _ConventionModule]] = {
         uom.UUID,
         uom.CMO,
         uom.CONVENTION_KEYS,
+        uom.REVISION_BY_SCHEMA_URL,
         uom.validate,
         uom.insert,
         uom.extract,
@@ -290,11 +297,18 @@ def _rev_kwargs(
     For the WRITE path (`create_many`/`insert_many`) only: there is no
     document to detect from, so without an explicit override the module's own
     default (LATEST) applies.
+
+    Raises `ValueError` if a revision is requested for a convention that has
+    none (`license`, `uom`) -- the same rule `convention_metadata()` applies --
+    rather than silently writing the only revision there is.
     """
     label = _requested_revision(revisions, name)
-    if label is not None and mod.resolve_read_revision is not None:
-        return {"revision": label}
-    return {}
+    if label is None:
+        return {}
+    if mod.resolve_read_revision is None:
+        msg = f"Convention {name!r} has no revisions; got revision={label!r}"
+        raise ValueError(msg)
+    return {"revision": label}
 
 
 def _read_rev_kwargs(
@@ -310,9 +324,12 @@ def _read_rev_kwargs(
     This must be threaded to both `extract` and `validate` so extraction cannot
     remove the declaration before validation resolves the revision.
     """
-    if mod.resolve_read_revision is None:
-        return {}
     label = _requested_revision(revisions, name)
+    if mod.resolve_read_revision is None:
+        if label is not None:
+            msg = f"Convention {name!r} has no revisions; got revision={label!r}"
+            raise ValueError(msg)
+        return {}
     if label is not None:
         return {"revision": label}
     return {"revision": mod.resolve_read_revision(attrs, None)}
@@ -321,10 +338,19 @@ def _read_rev_kwargs(
 def _detect_conventions(
     attrs: Mapping[str, JSONValue],
 ) -> frozenset[CanonicalConventionName]:
-    """Identify which conventions are present by matching UUIDs in zarr_conventions."""
+    """Identify which conventions `zarr_conventions` declares.
+
+    A declaration counts if its `uuid` is a known convention's, or -- for a
+    declaration carrying no `uuid` -- if its `schema_url` is one that
+    convention recognizes. See `_core.declares_convention`.
+    """
     conventions = validate_convention_metadata_objects(attrs.get("zarr_conventions"))
-    uuids = {cmo.get("uuid") for cmo in conventions}
-    return frozenset(name for name, mod in _REGISTRY.items() if mod.UUID in uuids)
+    return frozenset(
+        name
+        for name, mod in _REGISTRY.items()
+        if find_declaration(conventions, mod.UUID, mod.REVISION_BY_SCHEMA_URL)
+        is not None
+    )
 
 
 def create_many(

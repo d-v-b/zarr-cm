@@ -408,3 +408,31 @@ def test_unknown_key_in_revisions_is_ignored() -> None:
         revisions={"not-a-convention": "r1"},  # type: ignore[dict-item]
     )
     assert zarr_cm.detect_revisions(result) == {"proj": proj.LATEST}
+
+
+def test_revision_for_unrevisioned_convention_raises_on_write() -> None:
+    # Mirrors convention_metadata(): license/uom have no revisions to select,
+    # so a label for them is a caller error, not something to drop silently.
+    with pytest.raises(ValueError, match="'license' has no revisions"):
+        create_many({"license": {"spdx": "MIT"}}, revisions={"license": "v1"})
+    with pytest.raises(ValueError, match="'uom' has no revisions"):
+        insert_many({}, {"uom": {"ucum": {"unit": "m"}}}, revisions={"uom": "nope"})
+
+
+def test_revision_for_unrevisioned_convention_raises_on_read() -> None:
+    attrs = create_many({"license": {"spdx": "MIT"}})
+    with pytest.raises(ValueError, match="'license' has no revisions"):
+        validate_many(attrs, ["license"], revisions={"license": "v1"})
+    with pytest.raises(ValueError, match="'license' has no revisions"):
+        extract_all(attrs, revisions={"license": "v1"})
+
+
+def test_schema_url_only_declaration_is_detected_by_all_functions() -> None:
+    attrs = {
+        "zarr_conventions": [{"schema_url": spatial.SCHEMA_URL}],
+        "spatial:dimensions": ["y", "x"],
+    }
+    assert zarr_cm.detect_revisions(attrs) == {"spatial": "r3"}
+    assert validate_all(attrs) is attrs
+    _, extracted = extract_all(attrs)
+    assert extracted == {"spatial": {"spatial:dimensions": ["y", "x"]}}

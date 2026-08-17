@@ -116,20 +116,35 @@ understood, with each canonical URL a member by construction. `detect` looks the
 declared URL up there; validation runs under whichever revision it maps to;
 documents zarr-cm writes always carry the canonical `SCHEMA_URL`.
 
-The aliases are not hypothetical. Between the conventions' first drafts
-(December 2025) and their `v0.1` releases (June 2026), the spec READMEs
-published example declarations whose `schema_url` pointed at a `refs/tags/v1`
-tag that was never created. Tools that integrated during that window —
-rioxarray, topozarr, and others — copied those examples faithfully, so documents
-declaring the dead URLs exist in the wild and are still being written. Those
-URLs are aliases of the surviving `r2` revisions, so such documents detect and
-validate normally. Working with real data, even when its declarations are
-imperfect, is part of this library's job.
+The aliases are not hypothetical. Two kinds exist today:
+
+- **Release tag URLs.** The `proj` and `spatial` `r3` revisions write a
+  commit-pinned `SCHEMA_URL`, but the upstream `v0.1` tag points at that same
+  commit, and the tag URL
+  (`https://raw.githubusercontent.com/zarr-conventions/proj/refs/tags/v0.1/schema.json`
+  and its `spatial` counterpart) is the schema's own `$id` and the `schema_url`
+  every upstream README example declares. Those URLs are aliases of `r3`, so a
+  document written by following upstream's own instructions reads as `r3`.
+- **Draft-era URLs.** Between the conventions' first drafts (December 2025) and
+  their `v0.1` releases (June 2026), the spec READMEs published example
+  declarations whose `schema_url` pointed at a `refs/tags/v1` tag that was never
+  created. Tools that integrated during that window — rioxarray, topozarr, and
+  others — copied those examples faithfully, so documents declaring the dead
+  URLs exist in the wild and are still being written. Those URLs are aliases of
+  the surviving `r2` revisions.
+
+Either way such documents detect and validate normally. Working with real data,
+even when its declarations are imperfect, is part of this library's job.
 
 The recognized set is enumerated, not open: a URL outside it still fails
 validation with `unsupported schema_url`, so unknown _future_ revisions are
 never silently misread. The [reading example](examples/reading.md) walks the
 full flow.
+
+A declaration may also identify its convention by `schema_url` alone (the spec
+requires a `uuid`, a `schema_url`, or a `spec_url` — any one). A
+`zarr_conventions` entry with no `uuid` but a recognized `schema_url` is
+detected, validated, and extracted exactly like one that carries the `uuid`.
 
 ### Group-level spatial metadata
 
