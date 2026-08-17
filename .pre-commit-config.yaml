@@ -64,8 +64,8 @@ repos:
           - pytest-examples
           - types-jsonschema
           - typing_extensions>=4.13
-          # Supplies JSONValue (aliased as JsonValue) and the v3 document
-          # TypedDicts; a runtime dependency of the package.
+          # Typing-only: the interop tests reference zarr-metadata's document
+          # TypedDicts under TYPE_CHECKING; pyright needs them resolvable.
           - zarr-metadata>=0.5
 
   - repo: https://github.com/codespell-project/codespell

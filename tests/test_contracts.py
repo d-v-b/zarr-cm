@@ -145,7 +145,18 @@ def test_docstrings_use_markdown_code_spans() -> None:
     offenders: list[str] = []
     for source_root in source_roots:
         for path in source_root.rglob("*.py"):
-            tree = ast.parse(path.read_text())
+            # `_json_alias.py` uses the PEP 695 `type` statement, which the
+            # 3.11 parser rejects. `feature_version` cannot enable syntax the
+            # running interpreter lacks, so on 3.11 that one file is checked
+            # by a plain text scan of its docstrings instead of the AST walk.
+            source = path.read_text()
+            try:
+                tree = ast.parse(source)
+            except SyntaxError:
+                assert path.name == "_json_alias.py", path
+                if rst_code_span in source:
+                    offenders.append(f"{path.relative_to(project_root)}:1")
+                continue
             for node in ast.walk(tree):
                 if not isinstance(node, ast.Module | ast.ClassDef | ast.FunctionDef):
                     continue
