@@ -47,6 +47,7 @@ SpatialAttrs = TypedDict(
     },
     extra_items=JSONValue,
 )
+"""This type models the spec defined at https://github.com/zarr-conventions/spatial/blob/f5c536b9a3386e4127e3d2426dcefeebe6e5bf1a/README.md#properties"""
 
 SpatialConventionAttrs = TypedDict(
     "SpatialConventionAttrs",
@@ -61,6 +62,9 @@ SpatialConventionAttrs = TypedDict(
     },
     extra_items=JSONValue,
 )
+"""`SpatialAttrs` plus its `zarr_conventions` registration.
+
+See https://github.com/zarr-conventions/spatial/blob/f5c536b9a3386e4127e3d2426dcefeebe6e5bf1a/README.md#convention-registration"""
 
 # UUID identifies the convention *family*, not the revision; it is shared with
 # r1. Revisions are distinguished by the commit-pinned SCHEMA_URL below, which

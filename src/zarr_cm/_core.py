@@ -57,13 +57,7 @@ else:  # pragma: no cover - exercised only on Python 3.11
 
 
 class NamedConfig(TypedDict):
-    """The Zarr v3 extension-point envelope: `{name, configuration, must_understand}`.
-
-    Spec vocabulary, not this package's invention: it is the object form of
-    every v3 metadata field that names an extension (`data_type`,
-    `chunk_grid`, `chunk_key_encoding`, each codec, each storage
-    transformer). `must_understand` is implicitly true when absent.
-    """
+    """This type models the spec defined at https://zarr-specs.readthedocs.io/en/latest/v3/core/index.html#extension-points"""
 
     name: str
     configuration: NotRequired[Mapping[str, JSONValue]]
@@ -100,7 +94,12 @@ assignable wherever a wider one is expected.
 
 
 class GroupMetadata(TypedDict, Generic[AttrsT_co], extra_items=JSONValue):
-    """Zarr v3 group metadata generic over its `attributes` type."""
+    """Zarr v3 group metadata, generic over `attributes`.
+
+    This type models the spec defined at https://zarr-specs.readthedocs.io/en/latest/v3/core/index.html#group-metadata
+
+    The type parameter states what is known about `attributes`; the
+    `validate_*_metadata` functions narrow it."""
 
     zarr_format: Literal[3]
     node_type: ReadOnly[Literal["group"]]
@@ -108,12 +107,12 @@ class GroupMetadata(TypedDict, Generic[AttrsT_co], extra_items=JSONValue):
 
 
 class ArrayMetadata(TypedDict, Generic[AttrsT_co], extra_items=JSONValue):
-    """Zarr v3 array metadata generic over its `attributes` type.
+    """Zarr v3 array metadata, generic over `attributes`.
 
-    The base fields intentionally mirror
-    `zarr_metadata.ZarrV3ArrayMetadataJSON`, so convention validation preserves
-    useful types such as `shape`, `codecs`, and the array node discriminator.
-    """
+    This type models the spec defined at https://zarr-specs.readthedocs.io/en/latest/v3/core/index.html#array-metadata
+
+    The type parameter states what is known about `attributes`; the
+    `validate_*_metadata` functions narrow it."""
 
     zarr_format: Literal[3]
     node_type: ReadOnly[Literal["array"]]
@@ -175,7 +174,7 @@ def _is_sequence(value: object) -> TypeGuard[Sequence[object]]:
 
 
 class ConventionMetadataObject(TypedDict, extra_items=JSONValue):
-    """A convention metadata object for the `zarr_conventions` array."""
+    """This type models the spec defined at https://github.com/zarr-conventions/zarr-conventions-spec/blob/main/README.md#convention-identity"""
 
     uuid: NotRequired[str]
     schema_url: NotRequired[str]
@@ -185,7 +184,7 @@ class ConventionMetadataObject(TypedDict, extra_items=JSONValue):
 
 
 class ConventionAttrs(TypedDict, extra_items=JSONValue):
-    """Attributes dict with a `zarr_conventions` array."""
+    """This type models the spec defined at https://github.com/zarr-conventions/zarr-conventions-spec/blob/main/README.md#convention-registration-via-zarr_conventions"""
 
     zarr_conventions: Sequence[ConventionMetadataObject]
 

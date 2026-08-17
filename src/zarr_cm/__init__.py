@@ -191,6 +191,10 @@ MultiConventionAttrs = TypedDict(
     },
     extra_items=JSONValue,
 )
+"""Every known convention's properties as `NotRequired` keys.
+
+A package composite, not a spec-defined structure; the keys are defined by
+their conventions' specs. See https://github.com/zarr-conventions/zarr-conventions-spec/blob/main/README.md#composability"""
 
 
 def _canonical(name: str) -> CanonicalConventionName:
