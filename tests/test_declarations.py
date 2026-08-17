@@ -42,7 +42,11 @@ def test_declares_convention(cmo: dict[str, Any], expected: bool) -> None:
 
 
 def test_find_declaration_returns_first_match_or_none() -> None:
-    cmos = [{"uuid": spatial.UUID}, {"schema_url": proj.SCHEMA_URL}, {"uuid": proj.UUID}]
+    cmos = [
+        {"uuid": spatial.UUID},
+        {"schema_url": proj.SCHEMA_URL},
+        {"uuid": proj.UUID},
+    ]
     assert find_declaration(cmos, proj.UUID, proj.REVISION_BY_SCHEMA_URL) is cmos[1]  # type: ignore[arg-type]
     assert find_declaration(cmos, license_.UUID) is None  # type: ignore[arg-type]
 
