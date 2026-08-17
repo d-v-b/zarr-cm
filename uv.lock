@@ -1470,7 +1470,6 @@ name = "zarr-cm"
 source = { editable = "." }
 dependencies = [
     { name = "typing-extensions" },
-    { name = "zarr-metadata" },
 ]
 
 [package.dev-dependencies]
@@ -1483,6 +1482,7 @@ dev = [
     { name = "pytest-cov" },
     { name = "pytest-examples" },
     { name = "types-jsonschema" },
+    { name = "zarr-metadata" },
 ]
 docs = [
     { name = "markdown" },
@@ -1503,13 +1503,11 @@ test = [
 typecheck = [
     { name = "pyright" },
     { name = "types-jsonschema" },
+    { name = "zarr-metadata" },
 ]
 
 [package.metadata]
-requires-dist = [
-    { name = "typing-extensions", specifier = ">=4.13" },
-    { name = "zarr-metadata", specifier = ">=0.5" },
-]
+requires-dist = [{ name = "typing-extensions", specifier = ">=4.13" }]
 
 [package.metadata.requires-dev]
 dev = [
@@ -1521,6 +1519,7 @@ dev = [
     { name = "pytest-cov", specifier = ">=7" },
     { name = "pytest-examples", specifier = ">=0.0.14" },
     { name = "types-jsonschema" },
+    { name = "zarr-metadata", specifier = ">=0.5" },
 ]
 docs = [
     { name = "markdown", specifier = ">=3.9" },
@@ -1541,6 +1540,7 @@ test = [
 typecheck = [
     { name = "pyright", specifier = ">=1.1.386" },
     { name = "types-jsonschema" },
+    { name = "zarr-metadata", specifier = ">=0.5" },
 ]
 
 [[package]]
