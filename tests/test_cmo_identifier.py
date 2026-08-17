@@ -69,3 +69,53 @@ def test_every_path_that_parses_declarations_rejects_it() -> None:
     # incidental "convention not declared" that a UUID lookup would surface.
     with pytest.raises(ValueError, match=_MSG):
         spatial.validate_group_metadata(node)
+
+
+# ---------------------------------------------------------------------------
+# The spec also closes the object: it MUST NOT contain fields beyond the five.
+# That is enforced statically (`ConventionMetadataObject` is `closed=True`,
+# so a writer cannot mint extras) but deliberately NOT at read time: a reader
+# that rejected unknown fields would fail on documents written to a later
+# spec revision, and one that dropped them would lose data on round-trip.
+# ---------------------------------------------------------------------------
+
+_FUTURE: dict[str, Any] = {
+    "uuid": spatial.UUID,
+    "schema_url": spatial.SCHEMA_URL,
+    "future_field": {"added": "in a later spec revision"},
+}
+
+
+def test_reader_preserves_unknown_declaration_fields() -> None:
+    """Unknown fields pass through the parser untouched -- not rejected, not dropped."""
+    (cmo,) = validate_convention_metadata_objects([_FUTURE])
+    assert cmo.get("uuid") == spatial.UUID
+    assert dict(cmo)["future_field"] == {"added": "in a later spec revision"}
+
+
+def test_reader_still_type_checks_the_known_fields() -> None:
+    """Tolerance of unknown fields does not relax the checks on known ones."""
+    with pytest.raises(TypeError, match="'name' must be a string"):
+        validate_convention_metadata_objects([{"uuid": "x", "name": 7, "extra": 1}])
+
+
+def test_unknown_fields_survive_an_extract_insert_round_trip() -> None:
+    """The data-loss case: before this, `insert` silently dropped a declaration's extras.
+
+    Attributes carry another convention's declaration bearing a future field;
+    inserting spatial alongside it must leave that field intact.
+    """
+    foreign: dict[str, Any] = {"uuid": "other-uuid", "future_field": "keep me"}
+    attrs: dict[str, Any] = {"zarr_conventions": [foreign]}
+    result = spatial.insert(attrs, spatial.create(dimensions=["y", "x"]))
+    declarations = validate_convention_metadata_objects(result["zarr_conventions"])
+    by_uuid = {c.get("uuid"): dict(c) for c in declarations}
+    assert by_uuid["other-uuid"]["future_field"] == "keep me"
+    assert spatial.UUID in by_uuid
+
+
+def test_written_declarations_carry_only_the_five_fields() -> None:
+    """Writer-strict: what zarr-cm itself emits conforms exactly to the spec."""
+    attrs = spatial.create_convention_attrs(dimensions=["y", "x"])
+    (cmo,) = attrs["zarr_conventions"]
+    assert set(cmo) <= {"uuid", "schema_url", "spec_url", "name", "description"}

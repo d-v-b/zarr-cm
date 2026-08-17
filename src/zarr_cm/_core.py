@@ -11,6 +11,7 @@ from typing import (
     NotRequired,
     TypeAlias,
     TypeGuard,
+    cast,
 )
 
 from typing_extensions import ReadOnly, TypeAliasType, TypedDict, TypeVar
@@ -173,8 +174,15 @@ def _is_sequence(value: object) -> TypeGuard[Sequence[object]]:
     )
 
 
-class ConventionMetadataObject(TypedDict, extra_items=JSONValue):
-    """This type models the spec defined at https://github.com/zarr-conventions/zarr-conventions-spec/blob/main/README.md#convention-identity"""
+class ConventionMetadataObject(TypedDict, closed=True):
+    """This type models the spec defined at https://github.com/zarr-conventions/zarr-conventions-spec/blob/v1/README.md#convention-identity
+
+    Closed: the spec says the object MUST NOT contain fields beyond these
+    five, so unlike the convention attributes types it takes no `extra_items`
+    -- a writer cannot mint a declaration with extra fields. Readers are more
+    tolerant: `validate_convention_metadata_objects` preserves unknown fields
+    it encounters rather than rejecting them.
+    """
 
     uuid: NotRequired[str]
     schema_url: NotRequired[str]
@@ -216,6 +224,8 @@ def validate_json_object(value: object) -> JSONDict:
 
 
 _CMO_IDENTIFIERS: Final = ("uuid", "schema_url", "spec_url")
+_CMO_FIELDS: Final = frozenset({*_CMO_IDENTIFIERS, "name", "description"})
+"""The complete field set of a convention metadata object; the spec closes it."""
 
 
 def validate_convention_metadata_object(cmo: Mapping[str, object]) -> None:
@@ -236,10 +246,13 @@ def validate_convention_metadata_objects(
 ) -> list[ConventionMetadataObject]:
     """Validate a `zarr_conventions` value.
 
-    Every entry must be a JSON object whose known fields are strings, and each
-    must carry an identifier (`validate_convention_metadata_object`). This is
-    the one place a `zarr_conventions` array is parsed, so the spec's MUST is
-    enforced on every read and write path that goes through it.
+    Every entry must be a JSON object whose known fields, when present, are
+    strings, and each must carry an identifier
+    (`validate_convention_metadata_object`). Fields beyond the five the spec
+    defines are preserved, not rejected or dropped: readers stay tolerant of
+    spec evolution and vendor fields, and round-trips lose nothing. This is the
+    one place a `zarr_conventions` array is parsed, so those rules hold on
+    every read and write path that goes through it.
     """
     if value is None:
         return []
@@ -250,15 +263,18 @@ def validate_convention_metadata_objects(
     result: list[ConventionMetadataObject] = []
     for item in value:
         obj = validate_json_object(item)
-        cmo = ConventionMetadataObject()
-        for key in ("uuid", "schema_url", "spec_url", "name", "description"):
-            if key not in obj:
-                continue
-            field = obj[key]
-            if not isinstance(field, str):
+        for key in _CMO_FIELDS:
+            if key in obj and not isinstance(obj[key], str):
                 msg = f"ConventionMetadataObject field {key!r} must be a string"
                 raise TypeError(msg)
-            cmo[key] = field
+        # Reader-liberal: fields the current spec does not define are carried
+        # through untouched rather than dropped, so a document written to a
+        # later spec revision (or with vendor fields) round-trips through
+        # extract/insert without silent data loss, and reads do not fail on
+        # spec evolution. Only the five known fields are validated. The static
+        # `ConventionMetadataObject` type is closed, so a *writer* cannot mint
+        # extra fields; the widening here is confined to what we read.
+        cmo = cast("ConventionMetadataObject", obj)
         validate_convention_metadata_object(cmo)
         result.append(cmo)
     return result

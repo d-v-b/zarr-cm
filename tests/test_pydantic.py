@@ -38,15 +38,25 @@ def test_model_with_cmo_tuple_rebuilds() -> None:
     assert m.convs[0].get("uuid") == "abc"
 
 
-def test_model_with_cmo_validates_nested_extra_items() -> None:
-    """`extra_items=JSONValue` keys must validate as recursive JSON values."""
+def test_model_with_cmo_is_closed_to_extra_fields() -> None:
+    """`ConventionMetadataObject` is a closed TypedDict: pydantic rejects extras.
+
+    The conventions spec says the object MUST NOT contain fields beyond the
+    five it defines, so a *typed* construction of one -- here, through a
+    pydantic model -- refuses an unknown field. (Reading declarations from
+    documents is more tolerant; see `test_cmo_identifier` for the parser,
+    which preserves unknown fields rather than rejecting them.)
+    """
 
     class M(BaseModel):
         convs: tuple[ConventionMetadataObject, ...]
 
     M.model_rebuild()
-    m = M(convs=({"uuid": "abc", "extra": {"a": [1, "x", {"b": None}]}},))
-    assert m.convs[0].get("extra") == {"a": [1, "x", {"b": None}]}
+    with pytest.raises(pydantic.ValidationError):
+        M(convs=({"uuid": "abc", "extra": {"a": [1, "x", {"b": None}]}},))
+    # The five defined fields still validate.
+    m = M(convs=({"uuid": "abc", "name": "n"},))
+    assert m.convs[0].get("uuid") == "abc"
 
 
 def test_model_with_convention_attrs_typeddict_rebuilds() -> None:
