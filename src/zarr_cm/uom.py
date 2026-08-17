@@ -30,21 +30,23 @@ if TYPE_CHECKING:
 
 
 class UCUM(TypedDict, extra_items=JSONValue):
-    """Unified Code for Units of Measurement information."""
+    """This type models the spec defined at https://github.com/clbarnes/zarr-convention-uom/blob/v1/README.md#ucum-object"""
 
     unit: NotRequired[str]
     version: NotRequired[str]
 
 
 class UomAttrs(TypedDict, extra_items=JSONValue):
-    """Unit of measurement metadata for a Zarr array."""
+    """This type models the spec defined at https://github.com/clbarnes/zarr-convention-uom/blob/v1/README.md#uom-object"""
 
     ucum: UCUM
     description: NotRequired[str]
 
 
 class UomConventionAttrs(TypedDict, extra_items=JSONValue):
-    """Attributes dict containing uom convention metadata."""
+    """`UomAttrs` plus its `zarr_conventions` registration.
+
+    See https://github.com/clbarnes/zarr-convention-uom/blob/v1/README.md#convention-registration"""
 
     zarr_conventions: Sequence[ConventionMetadataObject]
     uom: UomAttrs

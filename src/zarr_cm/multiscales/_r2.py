@@ -42,14 +42,14 @@ from zarr_cm._node import NodeContext, node_convention_data, node_type_of, prepa
 
 
 class Transform(TypedDict, extra_items=JSONValue):
-    """Coordinate transformation with scale and translation."""
+    """This type models the spec defined at https://github.com/zarr-conventions/multiscales/blob/v0.1/README.md#transform-object"""
 
     scale: NotRequired[Sequence[float]]
     translation: NotRequired[Sequence[float]]
 
 
 class LayoutObject(TypedDict, extra_items=JSONValue):
-    """A single resolution level in a multiscale pyramid."""
+    """This type models the spec defined at https://github.com/zarr-conventions/multiscales/blob/v0.1/README.md#layout-object"""
 
     asset: str
     derived_from: NotRequired[str]
@@ -58,14 +58,17 @@ class LayoutObject(TypedDict, extra_items=JSONValue):
 
 
 class MultiscalesAttrs(TypedDict, extra_items=JSONValue):
-    """Multiscale pyramid layout and metadata."""
+    """This type models the spec defined at https://github.com/zarr-conventions/multiscales/blob/v0.1/README.md#field-details"""
 
     layout: Sequence[LayoutObject]
     resampling_method: NotRequired[str]
 
 
 class MultiscalesConventionAttrs(TypedDict, extra_items=JSONValue):
-    """Attributes dict containing multiscales convention metadata."""
+    """`MultiscalesAttrs` plus its `zarr_conventions` registration.
+
+    See https://github.com/zarr-conventions/multiscales/blob/v0.1/README.md#configuration and
+    https://github.com/zarr-conventions/zarr-conventions-spec/blob/main/README.md#convention-registration-via-zarr_conventions"""
 
     zarr_conventions: Sequence[ConventionMetadataObject]
     multiscales: MultiscalesAttrs

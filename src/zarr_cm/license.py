@@ -30,7 +30,7 @@ if TYPE_CHECKING:
 
 
 class LicenseAttrs(TypedDict, extra_items=JSONValue):
-    """License metadata for a Zarr node."""
+    """This type models the spec defined at https://github.com/clbarnes/zarr-convention-license/blob/v1/README.md#license-object"""
 
     spdx: NotRequired[str]
     url: NotRequired[str]
@@ -40,7 +40,9 @@ class LicenseAttrs(TypedDict, extra_items=JSONValue):
 
 
 class LicenseConventionAttrs(TypedDict, extra_items=JSONValue):
-    """Attributes dict containing license convention metadata."""
+    """`LicenseAttrs` plus its `zarr_conventions` registration.
+
+    See https://github.com/clbarnes/zarr-convention-license/blob/v1/README.md#convention-registration"""
 
     zarr_conventions: Sequence[ConventionMetadataObject]
     license: LicenseAttrs

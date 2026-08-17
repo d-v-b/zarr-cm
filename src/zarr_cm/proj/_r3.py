@@ -43,6 +43,7 @@ GeoProjAttrs = TypedDict(
     },
     extra_items=JSONValue,
 )
+"""This type models the spec defined at https://github.com/zarr-conventions/proj/blob/5ca5b2f92e5c7245f957d9128b289ee535f0720d/README.md#field-details"""
 
 GeoProjConventionAttrs = TypedDict(
     "GeoProjConventionAttrs",
@@ -54,6 +55,9 @@ GeoProjConventionAttrs = TypedDict(
     },
     extra_items=JSONValue,
 )
+"""`GeoProjAttrs` plus its `zarr_conventions` registration.
+
+See https://github.com/zarr-conventions/proj/blob/5ca5b2f92e5c7245f957d9128b289ee535f0720d/README.md#convention-registration"""
 
 # UUID identifies the convention *family*, not the revision; it is shared with
 # r1. Revisions are distinguished by the commit-pinned SCHEMA_URL below, which

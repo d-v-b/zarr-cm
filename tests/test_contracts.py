@@ -171,3 +171,50 @@ def test_public_core_aliases_have_runtime_metadata() -> None:
     assert inspect.isclass(zarr_cm.ArrayMetadata)
     assert inspect.isclass(zarr_cm.GroupMetadata)
     assert hasattr(zarr_cm.Metadata, "__type_params__")
+
+
+def test_every_typeddict_docstring_points_at_its_spec() -> None:
+    """Every spec-defined data structure documents where the spec defines it.
+
+    The convention TypedDicts model structures whose shape is dictated by an
+    external specification -- the Zarr conventions spec, the Zarr v3 core
+    spec, or a convention's own README -- so each docstring must carry a URL
+    into that document, anchored to the section that defines the structure.
+    Both TypedDict spellings are checked: class form (the class docstring) and
+    functional form (the string statement immediately after the assignment).
+    """
+    project_root = Path(__file__).parents[1]
+    missing: list[str] = []
+    for path in (project_root / "src" / "zarr_cm").rglob("*.py"):
+        try:
+            tree = ast.parse(path.read_text())
+        except SyntaxError:  # _json_alias.py on 3.11; it defines no TypedDicts
+            continue
+        body = tree.body
+        for i, node in enumerate(body):
+            doc: str | None = None
+            name: str | None = None
+            if isinstance(node, ast.ClassDef) and any(
+                "TypedDict" in ast.unparse(b) for b in node.bases
+            ):
+                name, doc = node.name, ast.get_docstring(node)
+            elif (
+                isinstance(node, ast.Assign)
+                and isinstance(node.value, ast.Call)
+                and ast.unparse(node.value.func).endswith("TypedDict")
+            ):
+                name = ast.unparse(node.targets[0])
+                nxt = body[i + 1] if i + 1 < len(body) else None
+                if (
+                    isinstance(nxt, ast.Expr)
+                    and isinstance(nxt.value, ast.Constant)
+                    and isinstance(nxt.value.value, str)
+                ):
+                    doc = nxt.value.value
+            if name is None:
+                continue
+            if doc is None or "https://" not in doc or "#" not in doc:
+                missing.append(f"{path.relative_to(project_root)}:{name}")
+    assert missing == [], "TypedDicts without an anchored spec link: " + ", ".join(
+        missing
+    )
