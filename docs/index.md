@@ -255,6 +255,12 @@ several conventions at once, keyed by convention name (`"proj"`, `"spatial"`,
 still accepted as an alias for `"proj"`). `extract_all` and `validate_all` are
 shortcuts that operate on all known conventions.
 
+Every function that reads or writes `zarr_conventions` also enforces the
+conventions spec's requirement that each declaration carry an identifier — at
+least one of `uuid`, `schema_url`, or `spec_url` — and raises `ValueError` on
+one that does not. The check itself is exported as
+`validate_convention_metadata_object`.
+
 <!-- blacken-docs:off -->
 <!-- prettier-ignore -->
 ```python

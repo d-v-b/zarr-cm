@@ -215,10 +215,32 @@ def validate_json_object(value: object) -> JSONDict:
     return result
 
 
+_CMO_IDENTIFIERS: Final = ("uuid", "schema_url", "spec_url")
+
+
+def validate_convention_metadata_object(cmo: Mapping[str, object]) -> None:
+    """Validate that a convention metadata object carries an identifier.
+
+    The Zarr conventions specification requires that at least one of `uuid`,
+    `schema_url`, or `spec_url` be present; a declaration with none of them
+    identifies no convention.
+    https://github.com/zarr-conventions/zarr-conventions-spec/blob/v1/README.md#convention-identity
+    """
+    if not any(k in cmo for k in _CMO_IDENTIFIERS):
+        msg = "ConventionMetadataObject must have at least one of 'uuid', 'schema_url', or 'spec_url'"
+        raise ValueError(msg)
+
+
 def validate_convention_metadata_objects(
     value: object,
 ) -> list[ConventionMetadataObject]:
-    """Validate a `zarr_conventions` value."""
+    """Validate a `zarr_conventions` value.
+
+    Every entry must be a JSON object whose known fields are strings, and each
+    must carry an identifier (`validate_convention_metadata_object`). This is
+    the one place a `zarr_conventions` array is parsed, so the spec's MUST is
+    enforced on every read and write path that goes through it.
+    """
     if value is None:
         return []
     if not _is_sequence(value):
@@ -237,15 +259,9 @@ def validate_convention_metadata_objects(
                 msg = f"ConventionMetadataObject field {key!r} must be a string"
                 raise TypeError(msg)
             cmo[key] = field
+        validate_convention_metadata_object(cmo)
         result.append(cmo)
     return result
-
-
-def validate_convention_metadata_object(cmo: JSONDict) -> None:
-    """Validate that a ConventionMetadataObject has at least one identifier."""
-    if not any(k in cmo for k in ("uuid", "schema_url", "spec_url")):
-        msg = "ConventionMetadataObject must have at least one of 'uuid', 'schema_url', or 'spec_url'"
-        raise ValueError(msg)
 
 
 def declares_convention(
