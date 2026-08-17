@@ -16,15 +16,17 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from types import ModuleType
-from typing import Any, NamedTuple
-from uuid import UUID
+from typing import TYPE_CHECKING, Any, NamedTuple
 
 from hypothesis import strategies as st
 
 import zarr_cm
 from zarr_cm import license as license_
 from zarr_cm import multiscales, proj, spatial, uom
+
+if TYPE_CHECKING:
+    from types import ModuleType
+    from uuid import UUID
 
 SCHEMAS = Path(__file__).parent / "schemas"
 
@@ -58,7 +60,9 @@ def drop_none(kwargs: Kwargs) -> Kwargs:
 _PROJJSON = st.dictionaries(text, st.text(max_size=10) | st.integers(), max_size=3)
 
 
-def _proj_kwargs(code: st.SearchStrategy[str], *, exactly_one: bool) -> st.SearchStrategy[Kwargs]:
+def _proj_kwargs(
+    code: st.SearchStrategy[str], *, exactly_one: bool
+) -> st.SearchStrategy[Kwargs]:
     """Choose which of code / wkt2 / projjson to set; r2 wants exactly one."""
     fields = ("code", "wkt2", "projjson")
     values = {"code": code, "wkt2": text, "projjson": _PROJJSON}
@@ -128,7 +132,7 @@ MULTISCALES_KWARGS: st.SearchStrategy[Kwargs] = st.fixed_dictionaries(
 
 LICENSE_KWARGS: st.SearchStrategy[Kwargs] = st.sets(
     st.sampled_from(["spdx", "url", "text", "file", "path"]), min_size=1
-).flatmap(lambda names: st.fixed_dictionaries({name: text for name in names}))
+).flatmap(lambda names: st.fixed_dictionaries(dict.fromkeys(names, text)))
 
 UOM_KWARGS: st.SearchStrategy[Kwargs] = st.fixed_dictionaries(
     {
@@ -167,15 +171,51 @@ def _schema(name: str) -> dict[str, Any]:
 
 
 REVISIONS: tuple[Revision, ...] = (
-    Revision("proj", "r2", proj.r2, proj, _schema("proj-r2.json"), "group", PROJ_R2_KWARGS),
-    Revision("proj", "r3", proj.r3, proj, _schema("proj-r3.json"), "group", PROJ_R3_KWARGS),
+    Revision(
+        "proj", "r2", proj.r2, proj, _schema("proj-r2.json"), "group", PROJ_R2_KWARGS
+    ),
+    Revision(
+        "proj", "r3", proj.r3, proj, _schema("proj-r3.json"), "group", PROJ_R3_KWARGS
+    ),
     # spatial: arrays additionally require spatial:dimensions, so groups are the
     # node type on which *any* generated data is valid.
-    Revision("spatial", "r2", spatial.r2, spatial, _schema("spatial-r2.json"), "group", SPATIAL_KWARGS),
-    Revision("spatial", "r3", spatial.r3, spatial, _schema("spatial-r3.json"), "group", SPATIAL_KWARGS),
+    Revision(
+        "spatial",
+        "r2",
+        spatial.r2,
+        spatial,
+        _schema("spatial-r2.json"),
+        "group",
+        SPATIAL_KWARGS,
+    ),
+    Revision(
+        "spatial",
+        "r3",
+        spatial.r3,
+        spatial,
+        _schema("spatial-r3.json"),
+        "group",
+        SPATIAL_KWARGS,
+    ),
     # multiscales is group-only; uom's schema is array-only.
-    Revision("multiscales", "r2", multiscales.r2, multiscales, _schema("multiscales-r2.json"), "group", MULTISCALES_KWARGS),
-    Revision("license", None, license_, license_, _schema("license.json"), "group", LICENSE_KWARGS),
+    Revision(
+        "multiscales",
+        "r2",
+        multiscales.r2,
+        multiscales,
+        _schema("multiscales-r2.json"),
+        "group",
+        MULTISCALES_KWARGS,
+    ),
+    Revision(
+        "license",
+        None,
+        license_,
+        license_,
+        _schema("license.json"),
+        "group",
+        LICENSE_KWARGS,
+    ),
     Revision("uom", None, uom, uom, _schema("uom.json"), "array", UOM_KWARGS),
 )
 
@@ -199,7 +239,9 @@ def revision_pairs(draw: st.DrawFn) -> tuple[Revision, Revision]:
 
 
 @st.composite
-def revision_selections(draw: st.DrawFn) -> dict[str, Revision]:
+def revision_selections(
+    draw: st.DrawFn,
+) -> dict[zarr_cm.CanonicalConventionName, Revision]:
     """A non-empty choice of conventions, one revision each: a `create_many` input."""
     names = draw(st.sets(st.sampled_from(sorted(zarr_cm.CONVENTION_NAMES)), min_size=1))
     return {name: draw(st.sampled_from(BY_CONVENTION[name])) for name in sorted(names)}
@@ -217,7 +259,6 @@ foreign_attrs: st.SearchStrategy[dict[str, Any]] = st.dictionaries(
 """Attributes belonging to nobody: keys no convention claims, arbitrary values."""
 
 _known_uuids = {r.module.UUID for r in REVISIONS}
-
 
 
 def _foreign_declaration(u: UUID, name: str) -> dict[str, str]:

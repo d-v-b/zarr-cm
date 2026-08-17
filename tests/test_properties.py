@@ -14,11 +14,11 @@ from typing import Any
 
 import jsonschema
 import pytest
-from referencing import Registry, Resource
-from referencing.jsonschema import DRAFT7
 from conftest import as_sequence, wrap_attrs
 from hypothesis import given, settings
 from hypothesis import strategies as st
+from referencing import Registry, Resource
+from referencing.jsonschema import DRAFT7
 from strategies import (
     REVISIONS,
     Revision,
@@ -30,6 +30,7 @@ from strategies import (
 )
 
 import zarr_cm
+from zarr_cm import CanonicalConventionName, ConventionName
 
 # Every property runs the whole registry, so a modest example budget per
 # property still covers each revision many times over.
@@ -64,7 +65,9 @@ def roundtrip(value: Any) -> Any:
 
 
 @given(revisions, st.data())
-def test_create_output_validates_under_its_own_revision(rev: Revision, data: st.DataObject) -> None:
+def test_create_output_validates_under_its_own_revision(
+    rev: Revision, data: st.DataObject
+) -> None:
     created = rev.module.create(**data.draw(rev.kwargs))
     assert rev.module.validate(created) == created
     if rev.label is not None:
@@ -72,14 +75,18 @@ def test_create_output_validates_under_its_own_revision(rev: Revision, data: st.
 
 
 @given(revisions, st.data())
-def test_generated_data_matches_the_upstream_schema(rev: Revision, data: st.DataObject) -> None:
+def test_generated_data_matches_the_upstream_schema(
+    rev: Revision, data: st.DataObject
+) -> None:
     """The generators are honest: what they produce is valid per upstream too."""
     attrs = rev.module.create_convention_attrs(**data.draw(rev.kwargs))
     conforms(wrap_attrs(attrs, node_type=rev.node_type), rev.schema)
 
 
 @given(revisions, st.data())
-def test_create_convention_attrs_is_insert_into_nothing(rev: Revision, data: st.DataObject) -> None:
+def test_create_convention_attrs_is_insert_into_nothing(
+    rev: Revision, data: st.DataObject
+) -> None:
     kwargs = data.draw(rev.kwargs)
     assert rev.module.create_convention_attrs(**kwargs) == rev.module.insert(
         {}, rev.module.create(**kwargs)
@@ -90,29 +97,36 @@ def test_create_convention_attrs_is_insert_into_nothing(rev: Revision, data: st.
 
 
 @given(revisions, st.data(), foreign_attrs)
-def test_insert_then_extract_is_identity(rev: Revision, data: st.DataObject, foreign: dict[str, Any]) -> None:
+def test_insert_then_extract_is_identity(
+    rev: Revision, data: st.DataObject, foreign: dict[str, Any]
+) -> None:
     created = rev.module.create(**data.draw(rev.kwargs))
     inserted = rev.module.insert(foreign, created)
     remaining, extracted = rev.module.extract(inserted)
     assert extracted == created
     assert remaining == foreign
-    assert inserted[  # the input was not mutated
-        "zarr_conventions"
-    ] == [rev.module.CMO] and "zarr_conventions" not in foreign
+    assert inserted["zarr_conventions"] == [rev.module.CMO]
+    assert "zarr_conventions" not in foreign  # the input was not mutated
 
 
 @given(revisions, st.data(), foreign_attrs)
-def test_written_documents_are_read_back_at_the_same_revision(rev: Revision, data: st.DataObject, foreign: dict[str, Any]) -> None:
+def test_written_documents_are_read_back_at_the_same_revision(
+    rev: Revision, data: st.DataObject, foreign: dict[str, Any]
+) -> None:
     created = rev.module.create(**data.draw(rev.kwargs))
     attrs = rev.module.insert(foreign, created)
     if rev.label is not None:
         # auto-detect agrees with the pin, and both agree with what was written
         assert rev.package.detect(attrs) == rev.label
-        assert rev.package.extract(attrs) == rev.package.extract(attrs, revision=rev.label)
+        assert rev.package.extract(attrs) == rev.package.extract(
+            attrs, revision=rev.label
+        )
         assert rev.package.extract(attrs)[1] == created
     assert zarr_cm.validate_many(attrs, [rev.convention]) is attrs
     assert zarr_cm.detect_revisions(attrs) == (
-        {rev.convention: rev.label} if rev.label is not None else {rev.convention: rev.package.detect(attrs)}
+        {rev.convention: rev.label}
+        if rev.label is not None
+        else {rev.convention: rev.package.detect(attrs)}
     )
     assert zarr_cm.validate_all(attrs) is attrs
     remaining, extracted = zarr_cm.extract_all(attrs)
@@ -121,7 +135,9 @@ def test_written_documents_are_read_back_at_the_same_revision(rev: Revision, dat
 
 
 @given(revisions, st.data(), foreign_attrs)
-def test_json_round_trip_preserves_everything(rev: Revision, data: st.DataObject, foreign: dict[str, Any]) -> None:
+def test_json_round_trip_preserves_everything(
+    rev: Revision, data: st.DataObject, foreign: dict[str, Any]
+) -> None:
     """What we write survives serialization: the on-disk form reads identically."""
     created = rev.module.create(**data.draw(rev.kwargs))
     attrs = rev.module.insert(foreign, created)
@@ -133,7 +149,9 @@ def test_json_round_trip_preserves_everything(rev: Revision, data: st.DataObject
 
 
 @given(revisions, st.data(), foreign_attrs)
-def test_node_level_validation_accepts_what_we_write(rev: Revision, data: st.DataObject, foreign: dict[str, Any]) -> None:
+def test_node_level_validation_accepts_what_we_write(
+    rev: Revision, data: st.DataObject, foreign: dict[str, Any]
+) -> None:
     created = rev.module.create(**data.draw(rev.kwargs))
     attrs = rev.module.insert(foreign, created)
     node = wrap_attrs(attrs, node_type=rev.node_type)
@@ -141,14 +159,19 @@ def test_node_level_validation_accepts_what_we_write(rev: Revision, data: st.Dat
     assert validated["attributes"] == attrs
     if rev.label is not None:
         assert rev.package.validate_node_metadata(node)["attributes"] == attrs
-        assert rev.package.validate_node_metadata(node, revision=rev.label)["attributes"] == attrs
+        assert (
+            rev.package.validate_node_metadata(node, revision=rev.label)["attributes"]
+            == attrs
+        )
 
 
 # --- declarations: aliases, schema_url-only, merging -----------------------------------
 
 
 @given(revisions, st.data())
-def test_every_recognized_schema_url_reads_as_this_revision(rev: Revision, data: st.DataObject) -> None:
+def test_every_recognized_schema_url_reads_as_this_revision(
+    rev: Revision, data: st.DataObject
+) -> None:
     """Canonical or alias, uuid or not: each recognized URL selects this revision."""
     attrs = rev.module.create_convention_attrs(**data.draw(rev.kwargs))
     url = data.draw(st.sampled_from(sorted(rev.module.RECOGNIZED_SCHEMA_URLS)))
@@ -159,12 +182,19 @@ def test_every_recognized_schema_url_reads_as_this_revision(rev: Revision, data:
 
     if rev.label is not None:
         assert rev.package.detect(attrs) == rev.label
-        assert rev.package.extract(attrs) == rev.package.extract(attrs, revision=rev.label)
-        assert rev.package.validate_node_metadata(node, revision=rev.label)["attributes"] == attrs
+        assert rev.package.extract(attrs) == rev.package.extract(
+            attrs, revision=rev.label
+        )
+        assert (
+            rev.package.validate_node_metadata(node, revision=rev.label)["attributes"]
+            == attrs
+        )
     else:
         assert rev.package.detect(attrs) is not None
     rev.module.validate_node_metadata(node)  # type: ignore[arg-type]
-    assert zarr_cm.detect_revisions(attrs) == {rev.convention: rev.package.detect(attrs)}
+    assert zarr_cm.detect_revisions(attrs) == {
+        rev.convention: rev.package.detect(attrs)
+    }
     zarr_cm.validate_all(attrs)
     remaining, extracted = zarr_cm.extract_all(attrs)
     assert remaining == {}
@@ -173,13 +203,20 @@ def test_every_recognized_schema_url_reads_as_this_revision(rev: Revision, data:
 
 @given(revisions, st.data(), foreign_attrs, foreign_declarations)
 def test_insert_keeps_every_foreign_declaration_and_declares_itself_once(
-    rev: Revision, data: st.DataObject, foreign: dict[str, Any], others: list[dict[str, str]]
+    rev: Revision,
+    data: st.DataObject,
+    foreign: dict[str, Any],
+    others: list[dict[str, str]],
 ) -> None:
     kwargs = data.draw(rev.kwargs)
     created = rev.module.create(**kwargs)
     start = {**foreign, "zarr_conventions": list(others)}
     # ...whether the data comes bare or as a stand-alone attributes dict.
-    payload = created if data.draw(st.booleans()) else rev.module.create_convention_attrs(**kwargs)
+    payload = (
+        created
+        if data.draw(st.booleans())
+        else rev.module.create_convention_attrs(**kwargs)
+    )
     result = rev.module.insert(start, payload)  # type: ignore[arg-type]
 
     assert result["zarr_conventions"][: len(others)] == others
@@ -196,7 +233,9 @@ def test_reinserting_at_another_revision_supersedes_the_declaration(
     first, second = pair
     start = {"zarr_conventions": list(others)}
     once = first.module.insert(start, first.module.create(**data.draw(first.kwargs)))
-    twice = second.module.insert(once, second.module.create(**data.draw(second.kwargs)), overwrite=True)
+    twice = second.module.insert(
+        once, second.module.create(**data.draw(second.kwargs)), overwrite=True
+    )
 
     assert declared(twice, second.module.UUID) == [second.module.CMO]
     assert twice["zarr_conventions"][: len(others)] == others
@@ -213,13 +252,22 @@ def test_reinserting_at_another_revision_supersedes_the_declaration(
 
 @given(revision_selections(), st.data(), foreign_attrs)
 def test_create_many_composes_and_decomposes(
-    selection: dict[str, Revision], data: st.DataObject, foreign: dict[str, Any]
+    selection: dict[CanonicalConventionName, Revision],
+    data: st.DataObject,
+    foreign: dict[str, Any],
 ) -> None:
-    payload = {name: rev.module.create(**data.draw(rev.kwargs)) for name, rev in selection.items()}
-    pins = {name: rev.label for name, rev in selection.items() if rev.label is not None}
+    payload: dict[ConventionName, Any] = {
+        name: rev.module.create(**data.draw(rev.kwargs))
+        for name, rev in selection.items()
+    }
+    pins: dict[ConventionName, str] = {
+        name: rev.label for name, rev in selection.items() if rev.label is not None
+    }
 
-    attrs = zarr_cm.insert_many(foreign, payload, revisions=pins)  # type: ignore[arg-type]
-    assert zarr_cm.create_many(payload, revisions=pins) == zarr_cm.insert_many({}, payload, revisions=pins)  # type: ignore[arg-type]
+    attrs = zarr_cm.insert_many(foreign, payload, revisions=pins)
+    assert zarr_cm.create_many(payload, revisions=pins) == zarr_cm.insert_many(
+        {}, payload, revisions=pins
+    )
 
     # every chosen convention is declared exactly once, at the chosen revision
     assert [c["uuid"] for c in as_sequence(attrs["zarr_conventions"])] == [  # type: ignore[index]
@@ -249,7 +297,10 @@ def test_registry_covers_every_revision(rev: Revision) -> None:
         assert rev.convention not in zarr_cm.latest_revisions()
     else:
         assert rev.label in rev.package.REVISION_BY_SCHEMA_URL.values()
-        assert zarr_cm.convention_metadata(rev.convention, revision=rev.label) == rev.module.CMO
+        assert (
+            zarr_cm.convention_metadata(rev.convention, revision=rev.label)
+            == rev.module.CMO
+        )
 
 
 @pytest.mark.parametrize("rev", REVISIONS, ids=repr)

@@ -23,6 +23,9 @@ repos:
       - id: mixed-line-ending
       - id: name-tests-test
         args: ["--pytest-test-first"]
+        # Hypothesis strategies shared by the property tests: a helper module
+        # imported by tests, like conftest.py, not a test module itself.
+        exclude: ^tests/strategies\.py$
       - id: requirements-txt-fixer
       - id: trailing-whitespace
 
