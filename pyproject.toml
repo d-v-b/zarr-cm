@@ -37,13 +37,6 @@ dependencies = [
   # PEP 728 `extra_items` on TypedDicts is not in any released CPython stdlib
   # yet; typing_extensions provides it at runtime for all supported versions.
   "typing_extensions>=4.13",
-  # Supplies the shared `JSONValue` and the v3 document TypedDicts accepted by
-  # node validators. A runtime dependency because `extra_items=JSONValue` is
-  # evaluated at class-creation
-  # time. >=0.5: first release whose JSONValue has the covariant `Sequence`
-  # array arm the convention TypedDicts rely on. Its only dependency is
-  # typing_extensions, which this package already carries.
-  "zarr-metadata>=0.5",
 ]
 
 [project.urls]
@@ -73,6 +66,12 @@ test = [
 typecheck = [
   "pyright >=1.1.386",
   "types-jsonschema",
+  # Typing-only. zarr-cm's JSONValue is structurally identical to
+  # zarr-metadata's, and the metadata generics accept zarr-metadata's
+  # document TypedDicts structurally; tests/test_typing.py proves that
+  # interop under pyright, which needs the package importable to check it.
+  # Deliberately NOT a runtime dependency: nothing from it is needed to run.
+  "zarr-metadata >=0.5",
 ]
 dev = [
   { include-group = "test" },
@@ -132,6 +131,11 @@ enableExperimentalFeatures = true
 
 
 [tool.ruff]
+# _json_alias.py uses the PEP 695 `type` statement and is imported only on
+# Python 3.12+ (see zarr_cm/_core.py). Lint it as 3.12 so the `type` syntax is
+# accepted; the rest of the package keeps the project-wide 3.11 floor.
+[tool.ruff.per-file-target-version]
+"src/zarr_cm/_json_alias.py" = "py312"
 
 [tool.ruff.lint]
 extend-select = [

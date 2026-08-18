@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import sys
 from collections.abc import Mapping, Sequence
 from collections.abc import Set as AbstractSet
 from typing import (
@@ -10,38 +11,66 @@ from typing import (
     NotRequired,
     TypeAlias,
     TypeGuard,
+    cast,
 )
 
 from typing_extensions import ReadOnly, TypeAliasType, TypedDict, TypeVar
 
-# `JSONValue` is zarr-metadata's, imported under its own name: one definition
-# of "a JSON value" across both packages, so their document types and ours
-# unify without casts. The convention modules and the public package import
-# it from here. The properties this package relies on hold upstream by
-# construction:
+if TYPE_CHECKING:
+    from collections.abc import Callable, Iterable
+
+# `JSONValue`: a JSON-encodable value.
 #
-# * The array arm is the covariant `Sequence` (not the invariant
-#   `list`/`tuple`), so concrete JSON-shaped values -- and the convention
-#   `TypedDict`s, whose fields carry narrower types like `Sequence[str]` --
-#   are assignable to it. A JSON array is still a `list` at runtime; the
-#   `Sequence` arm just declines to require a particular container at the
-#   type level.
+# Structurally identical to `zarr_metadata.JSONValue`, and deliberately so: two
+# recursive `TypeAliasType`s of the same shape unify under pyright and ty, so a
+# zarr-metadata document's `attributes` flow into zarr-cm and back with no cast
+# -- identity of the alias object is not required, only its shape. Two
+# properties of that shape are load-bearing:
+#
+# * The array arm is the covariant `Sequence`, not the invariant `list`/`tuple`,
+#   so concrete JSON-shaped values -- and the convention `TypedDict`s, whose
+#   fields carry narrower types like `Sequence[str]` -- are assignable to it. A
+#   JSON array is still a `list` at runtime; the `Sequence` arm just declines to
+#   require a particular container at the type level.
 # * It is a real recursive `TypeAliasType`, which is what lets a downstream
 #   pydantic model embed the convention `TypedDict`s (which use it as
 #   `extra_items`) without `RecursionError` in `model_rebuild()`. See
 #   https://github.com/zarr-conventions/zarr-cm/issues/18.
 #
-# This import is the reason zarr-metadata is a runtime dependency:
-# `extra_items=JSONValue` is evaluated at class-creation time.
-from zarr_metadata import (
-    JSONValue,
-    ZarrV3ArrayMetadataJSON,
-    ZarrV3GroupMetadataJSON,
-    ZarrV3MetadataFieldJSON,
-)
+# On 3.12+ the alias comes from `_json_alias` as a native PEP 695 `type`
+# statement, which pyright resolves cleanly across modules; on 3.11 -- where
+# `type` is a syntax error -- the runtime-equivalent `TypeAliasType` below is
+# used. The project type-checks at `pythonVersion = 3.12`, so pyright sees the
+# native form. Both are real recursive `TypeAliasType`s at runtime.
+if sys.version_info >= (3, 12):
+    from ._json_alias import JSONValue
+else:  # pragma: no cover - exercised only on Python 3.11
+    JSONValue = TypeAliasType(
+        "JSONValue",
+        int
+        | float
+        | bool
+        | str
+        | Sequence["JSONValue"]
+        | Mapping[str, "JSONValue"]
+        | None,
+    )
 
-if TYPE_CHECKING:
-    from collections.abc import Callable, Iterable
+
+class NamedConfig(TypedDict):
+    """This type models the spec defined at https://zarr-specs.readthedocs.io/en/latest/v3/core/index.html#extension-points"""
+
+    name: str
+    configuration: NotRequired[Mapping[str, JSONValue]]
+    must_understand: NotRequired[bool]
+
+
+MetadataField: TypeAlias = "str | NamedConfig"
+"""The JSON shape of a v3 metadata extension-point entry.
+
+Either a bare short-hand name string or a `NamedConfig` envelope. Mirrors
+`zarr_metadata.ZarrV3MetadataFieldJSON` structurally.
+"""
 
 NodeType = Literal["array", "group"]
 """The two node types a Zarr v3 metadata document can describe."""
@@ -66,7 +95,12 @@ assignable wherever a wider one is expected.
 
 
 class GroupMetadata(TypedDict, Generic[AttrsT_co], extra_items=JSONValue):
-    """Zarr v3 group metadata generic over its `attributes` type."""
+    """Zarr v3 group metadata, generic over `attributes`.
+
+    This type models the spec defined at https://zarr-specs.readthedocs.io/en/latest/v3/core/index.html#group-metadata
+
+    The type parameter states what is known about `attributes`; the
+    `validate_*_metadata` functions narrow it."""
 
     zarr_format: Literal[3]
     node_type: ReadOnly[Literal["group"]]
@@ -74,23 +108,23 @@ class GroupMetadata(TypedDict, Generic[AttrsT_co], extra_items=JSONValue):
 
 
 class ArrayMetadata(TypedDict, Generic[AttrsT_co], extra_items=JSONValue):
-    """Zarr v3 array metadata generic over its `attributes` type.
+    """Zarr v3 array metadata, generic over `attributes`.
 
-    The base fields intentionally mirror
-    `zarr_metadata.ZarrV3ArrayMetadataJSON`, so convention validation preserves
-    useful types such as `shape`, `codecs`, and the array node discriminator.
-    """
+    This type models the spec defined at https://zarr-specs.readthedocs.io/en/latest/v3/core/index.html#array-metadata
+
+    The type parameter states what is known about `attributes`; the
+    `validate_*_metadata` functions narrow it."""
 
     zarr_format: Literal[3]
     node_type: ReadOnly[Literal["array"]]
-    data_type: ZarrV3MetadataFieldJSON
+    data_type: MetadataField
     shape: tuple[int, ...]
-    chunk_grid: ZarrV3MetadataFieldJSON
-    chunk_key_encoding: ZarrV3MetadataFieldJSON
+    chunk_grid: MetadataField
+    chunk_key_encoding: MetadataField
     fill_value: JSONValue
-    codecs: tuple[ZarrV3MetadataFieldJSON, ...]
+    codecs: tuple[MetadataField, ...]
     attributes: ReadOnly[AttrsT_co]
-    storage_transformers: NotRequired[tuple[ZarrV3MetadataFieldJSON, ...]]
+    storage_transformers: NotRequired[tuple[MetadataField, ...]]
     dimension_names: NotRequired[tuple[str | None, ...]]
 
 
@@ -114,19 +148,16 @@ JSON containers. They do not mutate the input mapping.
 """
 
 
-ArrayMetadataInput: TypeAlias = (
-    ZarrV3ArrayMetadataJSON | ArrayMetadata[Mapping[str, JSONValue]]
-)
-"""What an array validator accepts: zarr-metadata's type or `ArrayMetadata`.
+ArrayMetadataInput: TypeAlias = ArrayMetadata[Mapping[str, JSONValue]]
+"""What an array validator accepts: the wide `ArrayMetadata`.
 
-The second arm is wide `ArrayMetadata`; covariance means every narrowed array
-document is assignable to it too, so validators chain:
-`proj.validate_array_metadata(spatial.validate_array_metadata(doc))`.
+Covariance means every narrowed array document is assignable to it too, so
+validators chain: `proj.validate_array_metadata(spatial.validate_array_metadata(doc))`.
+It is structural, so a `zarr_metadata.ZarrV3ArrayMetadataJSON` document
+satisfies it directly, with no cast and without zarr-metadata installed.
 """
 
-GroupMetadataInput: TypeAlias = (
-    ZarrV3GroupMetadataJSON | GroupMetadata[Mapping[str, JSONValue]]
-)
+GroupMetadataInput: TypeAlias = GroupMetadata[Mapping[str, JSONValue]]
 """What a group validator accepts; see `ArrayMetadataInput`."""
 
 NodeMetadataInput: TypeAlias = ArrayMetadataInput | GroupMetadataInput
@@ -143,8 +174,15 @@ def _is_sequence(value: object) -> TypeGuard[Sequence[object]]:
     )
 
 
-class ConventionMetadataObject(TypedDict, extra_items=JSONValue):
-    """A convention metadata object for the `zarr_conventions` array."""
+class ConventionMetadataObject(TypedDict, closed=True):
+    """This type models the spec defined at https://github.com/zarr-conventions/zarr-conventions-spec/blob/v1/README.md#convention-identity
+
+    Closed: the spec says the object MUST NOT contain fields beyond these
+    five, so unlike the convention attributes types it takes no `extra_items`
+    -- a writer cannot mint a declaration with extra fields. Readers are more
+    tolerant: `validate_convention_metadata_objects` preserves unknown fields
+    it encounters rather than rejecting them.
+    """
 
     uuid: NotRequired[str]
     schema_url: NotRequired[str]
@@ -154,7 +192,7 @@ class ConventionMetadataObject(TypedDict, extra_items=JSONValue):
 
 
 class ConventionAttrs(TypedDict, extra_items=JSONValue):
-    """Attributes dict with a `zarr_conventions` array."""
+    """This type models the spec defined at https://github.com/zarr-conventions/zarr-conventions-spec/blob/main/README.md#convention-registration-via-zarr_conventions"""
 
     zarr_conventions: Sequence[ConventionMetadataObject]
 
@@ -185,10 +223,37 @@ def validate_json_object(value: object) -> JSONDict:
     return result
 
 
+_CMO_IDENTIFIERS: Final = ("uuid", "schema_url", "spec_url")
+_CMO_FIELDS: Final = frozenset({*_CMO_IDENTIFIERS, "name", "description"})
+"""The complete field set of a convention metadata object; the spec closes it."""
+
+
+def validate_convention_metadata_object(cmo: Mapping[str, object]) -> None:
+    """Validate that a convention metadata object carries an identifier.
+
+    The Zarr conventions specification requires that at least one of `uuid`,
+    `schema_url`, or `spec_url` be present; a declaration with none of them
+    identifies no convention.
+    https://github.com/zarr-conventions/zarr-conventions-spec/blob/v1/README.md#convention-identity
+    """
+    if not any(k in cmo for k in _CMO_IDENTIFIERS):
+        msg = "ConventionMetadataObject must have at least one of 'uuid', 'schema_url', or 'spec_url'"
+        raise ValueError(msg)
+
+
 def validate_convention_metadata_objects(
     value: object,
 ) -> list[ConventionMetadataObject]:
-    """Validate a `zarr_conventions` value."""
+    """Validate a `zarr_conventions` value.
+
+    Every entry must be a JSON object whose known fields, when present, are
+    strings, and each must carry an identifier
+    (`validate_convention_metadata_object`). Fields beyond the five the spec
+    defines are preserved, not rejected or dropped: readers stay tolerant of
+    spec evolution and vendor fields, and round-trips lose nothing. This is the
+    one place a `zarr_conventions` array is parsed, so those rules hold on
+    every read and write path that goes through it.
+    """
     if value is None:
         return []
     if not _is_sequence(value):
@@ -198,24 +263,21 @@ def validate_convention_metadata_objects(
     result: list[ConventionMetadataObject] = []
     for item in value:
         obj = validate_json_object(item)
-        cmo = ConventionMetadataObject()
-        for key in ("uuid", "schema_url", "spec_url", "name", "description"):
-            if key not in obj:
-                continue
-            field = obj[key]
-            if not isinstance(field, str):
+        for key in _CMO_FIELDS:
+            if key in obj and not isinstance(obj[key], str):
                 msg = f"ConventionMetadataObject field {key!r} must be a string"
                 raise TypeError(msg)
-            cmo[key] = field
+        # Reader-liberal: fields the current spec does not define are carried
+        # through untouched rather than dropped, so a document written to a
+        # later spec revision (or with vendor fields) round-trips through
+        # extract/insert without silent data loss, and reads do not fail on
+        # spec evolution. Only the five known fields are validated. The static
+        # `ConventionMetadataObject` type is closed, so a *writer* cannot mint
+        # extra fields; the widening here is confined to what we read.
+        cmo = cast("ConventionMetadataObject", obj)
+        validate_convention_metadata_object(cmo)
         result.append(cmo)
     return result
-
-
-def validate_convention_metadata_object(cmo: JSONDict) -> None:
-    """Validate that a ConventionMetadataObject has at least one identifier."""
-    if not any(k in cmo for k in ("uuid", "schema_url", "spec_url")):
-        msg = "ConventionMetadataObject must have at least one of 'uuid', 'schema_url', or 'spec_url'"
-        raise ValueError(msg)
 
 
 def declares_convention(

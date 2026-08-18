@@ -116,25 +116,45 @@ def test_narrowed_documents_chain_and_widen() -> None:
     assert again is not narrowed
 
 
-def test_jsonvalue_is_zarr_metadata_jsonvalue() -> None:
-    """(6) One definition of "a JSON value" across both packages.
+def test_jsonvalue_is_a_recursive_type_alias() -> None:
+    """(6) `JSONValue` is a real recursive `TypeAliasType`, not a bare union.
 
-    `zarr_cm.JSONValue` *is* `zarr_metadata.JSONValue` -- the same
-    `TypeAliasType` object re-exported, not a lookalike -- so the two packages'
-    types unify instead of being structurally-similar strangers.
+    That is what lets pydantic embed the convention TypedDicts (which use it as
+    `extra_items`) without `RecursionError` -- issue #18 -- and it holds on
+    every supported Python: the native PEP 695 form on 3.12+, the
+    `typing_extensions.TypeAliasType` fallback on 3.11. It is deliberately a
+    *local* alias, structurally identical to `zarr_metadata.JSONValue`: two
+    recursive aliases of the same shape unify under pyright and ty, so identity
+    with zarr-metadata's object was never required for interop, and zarr-cm
+    carries no runtime dependency on that package.
     """
-    import zarr_metadata  # noqa: PLC0415
+    import sys  # noqa: PLC0415
+    import typing  # noqa: PLC0415
 
-    assert zarr_cm.JSONValue is zarr_metadata.JSONValue
+    import typing_extensions  # noqa: PLC0415
+
+    # The native `type` statement yields `typing.TypeAliasType`; the 3.11
+    # fallback yields `typing_extensions.TypeAliasType`. They are distinct
+    # classes, so accept whichever this interpreter is on.
+    alias_types: tuple[type, ...] = (typing_extensions.TypeAliasType,)
+    if sys.version_info >= (3, 12):
+        alias_types = (typing.TypeAliasType, *alias_types)
+    assert isinstance(zarr_cm.JSONValue, alias_types)
+    assert zarr_cm.JSONValue.__name__ == "JSONValue"
+    # And it is genuinely recursive: the alias names itself in its own value.
+    assert "JSONValue" in repr(zarr_cm.JSONValue.__value__)
 
 
 def test_unifies_with_zarr_metadata_documents() -> None:
     """(7) zarr-cm attributes flow into zarr-metadata documents without casts.
 
-    zarr-cm used to define its own recursive JSON alias, which pyright would
-    not unify with zarr-metadata's, so building a `ZarrV3GroupMetadataJSON`
-    from a zarr-cm attributes dict needed a cast. With one shared `JSONValue`
-    this must type-check bare.
+    zarr-cm's `JSONValue` and zarr-metadata's are separate but structurally
+    identical recursive aliases; pyright unifies them, so building a
+    `ZarrV3GroupMetadataJSON` from a zarr-cm attributes dict type-checks bare
+    -- and their document flows back into our validators, whose input types
+    are our own generics, which any structurally conforming document satisfies.
+    (An earlier version of this package briefly re-exported zarr-metadata's
+    alias on the mistaken belief that identity was required; it is not.)
     """
     attrs = spatial.create_convention_attrs(bbox=[0.0, 0.0, 1.0, 1.0])
     doc: ZarrV3GroupMetadataJSON = {
