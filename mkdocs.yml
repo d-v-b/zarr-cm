@@ -38,6 +38,14 @@ markdown_extensions:
 
 plugins:
   autorefs: {}
+  # Developer blog: docs/blog/posts/*.md, listed at /blog/. Posts are plain
+  # Markdown with a `date` in the front matter; `draft: true` keeps a post out
+  # of the built site until it is ready.
+  blog:
+    blog_dir: blog
+    post_url_format: "{date}/{slug}"
+    archive: false
+    categories: false
   mkdocstrings:
     handlers:
       python:
@@ -56,6 +64,7 @@ plugins:
 nav:
   - Home: index.md
   - Python API: api.md
+  - Release notes: release-notes.md
   - Examples:
       - examples/index.md
       - examples/composition.md
@@ -65,3 +74,5 @@ nav:
       - examples/multiscales.md
       - examples/license.md
       - examples/uom.md
+  - Blog:
+      - blog/index.md
