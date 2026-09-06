@@ -35,6 +35,14 @@ TRACKED: dict[str, dict[str, str]] = {
         "upstream": "https://raw.githubusercontent.com/zarr-conventions/multiscales/main/schema.json",
         "vendored": ".github/upstream-schemas/multiscales/9b78efa75fef0fed302d9cf880037c569354d860.json",
     },
+    "license": {
+        "upstream": "https://raw.githubusercontent.com/clbarnes/zarr-convention-license/main/schema.json",
+        "vendored": ".github/upstream-schemas/license/b2395cc3dbb7fba9bd58c640180db12371bd2329.json",
+    },
+    "uom": {
+        "upstream": "https://raw.githubusercontent.com/clbarnes/zarr-convention-uom/main/schema.json",
+        "vendored": ".github/upstream-schemas/uom/2a844494e89f316fa72723ea09ba693f91ad6714.json",
+    },
     "stac": {
         "upstream": "https://raw.githubusercontent.com/zarr-conventions/stac/main/schema.json",
         "vendored": ".github/upstream-schemas/stac/d67cd285b930f3297b02563af5270e4a9b84e38e.json",
