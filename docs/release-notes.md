@@ -161,6 +161,41 @@ The blog carries a narrative of this release; this is the itemized list.
   `spec_url`) now raises `ValueError` wherever `zarr_conventions` is parsed,
   including `validate_all`, `detect_revisions`, `insert` and `extract`.
 
+### Upgrading from 0.4
+
+Working through this list top to bottom upgrades a 0.4 codebase; each item names
+the symptom of skipping it.
+
+1. **Rename the JSON aliases.** `JsonValue` → `JSONValue`, `JsonDict` →
+   `JSONDict`, everywhere. The old names no longer import.
+2. **Key results on `"proj"`.** `detect_revisions()` and `extract_all()` report
+   the CRS convention as `"proj"`; code doing `extracted["geo-proj"]` gets a
+   `KeyError`. Passing `"geo-proj"` _in_ — to `create_many`, `validate_many`,
+   `revisions=` — still works.
+3. **Decide what an unrecognized `schema_url` should mean.** 0.4 silently
+   validated such documents as the latest revision; 0.5 raises `ValueError` from
+   `validate`/`extract` and the node-level validators. If you read documents
+   whose declarations you do not control, probe with `detect()` first (it
+   returns `None` for an unrecognized URL) or catch the `ValueError`; to
+   deliberately reproduce the old fallback, pin `revision=` explicitly. Most
+   documents that failed this way under 0.4.x were declaring the upstream tag
+   URLs, which 0.5 recognizes — so expect _fewer_ failures, not more.
+4. **Stop assuming `spatial:dimensions` is present.** It is `NotRequired` in
+   `SpatialAttrs`, so index it with `.get()`. A validated _group_ document may
+   genuinely lack it; arrays are still required to carry it, enforced by
+   `validate_array_metadata`.
+5. **Give every declaration an identifier.** A `zarr_conventions` entry with
+   none of `uuid`, `schema_url`, `spec_url` now raises `ValueError` wherever the
+   array is parsed — reads and writes. Such an entry was always invalid per the
+   spec; fix the data.
+6. **Do not put extra fields on a `ConventionMetadataObject` you construct.**
+   The TypedDict is closed: type checkers and pydantic now reject additional
+   fields. Unknown fields on declarations you _read_ still pass through
+   untouched.
+7. **Type-level only:** `*ConventionAttrs.zarr_conventions` is
+   `Sequence[ConventionMetadataObject]`, not `tuple[...]`; annotations that
+   spelled the tuple form may need updating. No runtime change.
+
 ### Internal
 
 - Property-based tests (`hypothesis`, test dependency): `tests/strategies.py`
