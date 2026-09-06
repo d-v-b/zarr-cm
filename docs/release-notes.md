@@ -16,9 +16,9 @@ The blog carries a narrative of this release; this is the itemized list.
 
 ### Highlights
 
-- A new convention: `zarr_cm.stac` supports the
-  [STAC convention](https://github.com/zarr-conventions/stac), attaching a STAC
-  Item or Collection to a Zarr group.
+- A sixth convention: [`stac`](https://github.com/zarr-conventions/stac) (v0.1)
+  — embed a STAC Item or Collection in a Zarr group's attributes, or reference
+  one by store key or link.
 - Whole-document validation: `validate_group_metadata`,
   `validate_array_metadata` and `validate_node_metadata` take a complete
   `zarr.json` document and check the rules that depend on the node type — the
@@ -36,11 +36,16 @@ The blog carries a narrative of this release; this is the itemized list.
 
 ### Added
 
-- `zarr_cm.stac`: support for the
-  [STAC convention](https://github.com/zarr-conventions/stac) (v0.1), which
-  attaches a STAC Item or Collection to a Zarr group via `stac:item`,
-  `stac:collection`, `stac:key`, or `stac:link` (exactly one required).
-  Group-only, single revision.
+- `zarr_cm.stac`: the STAC convention (single revision `v0.1`, group-only —
+  arrays are rejected like `multiscales`). Exactly one of `stac:item`,
+  `stac:collection`, `stac:key`, `stac:link` must be present; embedded
+  Items/Collections are checked only for being JSON objects — validating them as
+  STAC is STAC's own job. Ships the full module surface (`create`,
+  `create_convention_attrs`, `insert`, `extract`, `validate`, the node-level
+  validators), participates in every multi-convention function (`"stac"` is in
+  `CONVENTION_NAMES`), and exports `StacAttrs`, `StacConventionAttrs` and
+  `StacLink` at the top level. Tracked by the upstream drift check and covered
+  by the property-based tests like every other convention.
 - `validate_group_metadata`, `validate_array_metadata`, `validate_node_metadata`
   on every convention module and revision submodule; typed as
   `GroupMetadata[…]`, `ArrayMetadata[…]`, `Metadata[…]` documents whose
