@@ -200,6 +200,13 @@ the symptom of skipping it.
 7. **Type-level only:** `*ConventionAttrs.zarr_conventions` is
    `Sequence[ConventionMetadataObject]`, not `tuple[...]`; annotations that
    spelled the tuple form may need updating. No runtime change.
+8. **Rewrite stored `proj`/`spatial` declarations if they must pass the
+   published schemas.** 0.4 wrote commit-pinned `schema_url`/`spec_url` values
+   and `"proj:"`/`"spatial:"` names, which fail the upstream v0.1 schemas (and
+   validators built on them, such as inspect.geozarr.org). 0.5 still reads those
+   documents as `r3`; `insert(..., overwrite=True)` replaces the declaration
+   with the canonical one. Code that compares declarations against hard-coded
+   0.4 values (`name == "proj:"`, the commit URLs) must update.
 
 ### Internal
 
@@ -209,7 +216,8 @@ the symptom of skipping it.
   `tests/test_properties.py` runs the round-trip, detection, declaration and
   multi-convention invariants across the whole registry.
 - Vendored upstream schemas for every supported revision under `tests/schemas/`,
-  and a weekly workflow that diffs them against upstream `main`.
+  and a weekly workflow that diffs them against upstream `main` and opens an
+  issue when they drift.
 - The drift check now covers `license` and `uom` too, and a test pins its
   tracked set to `zarr_cm.CONVENTION_NAMES` so a new convention can't ship
   untracked.
