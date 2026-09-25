@@ -80,5 +80,3 @@ nav:
       - examples/license.md
       - examples/uom.md
       - examples/stac.md
-  - Blog:
-      - blog/index.md

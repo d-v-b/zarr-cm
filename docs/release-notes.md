@@ -12,8 +12,6 @@ Fixed, Breaking, Internal — include only the ones with content. -->
 
 ## 0.5.0 (unreleased)
 
-The blog carries a narrative of this release; this is the itemized list.
-
 ### Highlights
 
 - A sixth convention: [`stac`](https://github.com/zarr-conventions/stac) (v0.1)
@@ -70,7 +68,7 @@ The blog carries a narrative of this release; this is the itemized list.
   `Metadata`, `ArrayMetadataInput`, `GroupMetadataInput`, `NodeMetadataInput`,
   and the JSON aliases `JSONValue`, `JSONDict`.
 - Every example under `examples/` is now a page on the docs site, and this
-  release-notes page and a developer blog were added to the docs.
+  release-notes page was added to the docs.
 - Every spec-defined TypedDict's docstring links to the section of the spec that
   defines its shape, pinned to the same commit or tag the module's `SPEC_URL`
   uses; a test keeps the next convention from arriving without one.
