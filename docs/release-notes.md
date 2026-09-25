@@ -22,9 +22,9 @@ The blog carries a narrative of this release; this is the itemized list.
 - Whole-document validation: `validate_group_metadata`,
   `validate_array_metadata` and `validate_node_metadata` take a complete
   `zarr.json` document and check the rules that depend on the node type — the
-  spec makes `spatial:dimensions` required on arrays only, and `multiscales`
-  applies to groups only. Every convention module and every revision provides
-  all three.
+  spec makes `spatial:dimensions` required on arrays only, `multiscales` applies
+  to groups only, and `uom` to arrays only. Every convention module and every
+  revision provides all three.
 - Reads are more forgiving of the declarations found in the wild, without
   becoming permissive: each revision recognizes a set of `schema_url`s (its
   canonical one plus aliases), a declaration may identify its convention by

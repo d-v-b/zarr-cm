@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Sequence
-from typing import TYPE_CHECKING, Final, NotRequired, cast
+from typing import TYPE_CHECKING, Final, Never, NotRequired, cast
 
 from typing_extensions import TypedDict
 
@@ -11,7 +11,6 @@ from zarr_cm._core import (
     ArrayMetadata,
     ArrayMetadataInput,
     ConventionMetadataObject,
-    GroupMetadata,
     GroupMetadataInput,
     JSONDict,
     JSONValue,
@@ -182,6 +181,9 @@ def validate(data: Mapping[str, JSONValue]) -> UomAttrs:
 
 def _validate_context(context: NodeContext) -> None:
     """Validate uom against an already prepared node."""
+    if context.node_type == "group":
+        msg = "the 'uom' convention does not apply to group nodes"
+        raise ValueError(msg)
     data = node_convention_data(
         context, CMO, CONVENTION_KEYS, schema_urls=RECOGNIZED_SCHEMA_URLS
     )
@@ -195,23 +197,21 @@ def _validate_context(context: NodeContext) -> None:
     validate(validate_json_object(value))
 
 
-def validate_group_metadata(
-    metadata: GroupMetadataInput,
-) -> GroupMetadata[UomConventionAttrs]:
-    """Validate a v3 group metadata document against the uom convention."""
-    context = prepare_node(metadata, expected_node_type="group")
-    _validate_context(context)
-    return cast("GroupMetadata[UomConventionAttrs]", context.metadata)
+def validate_group_metadata(metadata: GroupMetadataInput) -> Never:
+    """Reject a v3 group metadata document: uom is an array-only convention.
+
+    The schema restricts `node_type` to `"array"`, so there is no valid
+    group form of this convention and this always raises.
+    """
+    _validate_context(prepare_node(metadata, expected_node_type="group"))
+    msg = "uom group validation unexpectedly returned"
+    raise AssertionError(msg)
 
 
 def validate_array_metadata(
     metadata: ArrayMetadataInput,
 ) -> ArrayMetadata[UomConventionAttrs]:
-    """Validate a v3 array metadata document against the uom convention.
-
-    The uom convention places no node-type-specific requirements on either
-    node type, so this matches `validate_group_metadata()`.
-    """
+    """Validate a v3 array metadata document against the uom convention."""
     context = prepare_node(metadata, expected_node_type="array")
     _validate_context(context)
     return cast("ArrayMetadata[UomConventionAttrs]", context.metadata)
@@ -223,7 +223,8 @@ def validate_node_metadata(
     """Validate a v3 node metadata document against the uom convention.
 
     Dispatches on the document's `node_type` to
-    `validate_array_metadata()` or `validate_group_metadata()`.
+    `validate_array_metadata()` or `validate_group_metadata()`. Only the
+    array arm can return: uom has no valid group form.
     """
     if node_type_of(metadata) == "array":
         return validate_array_metadata(cast("ArrayMetadataInput", metadata))

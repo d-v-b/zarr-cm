@@ -18,7 +18,7 @@ from zarr_cm._core import JSONValue, validate_json_object
 if TYPE_CHECKING:
     from collections.abc import Mapping
 
-    from zarr_metadata import ZarrV3GroupMetadataJSON
+    from zarr_metadata import ZarrV3ArrayMetadataJSON, ZarrV3GroupMetadataJSON
 
 
 class _RevisionedModule(Protocol):
@@ -66,13 +66,19 @@ def test_nested_uom_mappings_are_normalized_in_returned_document() -> None:
     attrs: Mapping[str, JSONValue] = MappingProxyType(
         {"zarr_conventions": [uom.CMO], "uom": uom_data}
     )
-    node: ZarrV3GroupMetadataJSON = {
+    node: ZarrV3ArrayMetadataJSON = {
         "zarr_format": 3,
-        "node_type": "group",
+        "node_type": "array",
+        "data_type": "float64",
+        "shape": (1,),
+        "chunk_grid": {"name": "regular"},
+        "chunk_key_encoding": {"name": "default"},
+        "fill_value": 0.0,
+        "codecs": ({"name": "bytes"},),
         "attributes": attrs,
     }
 
-    validated = uom.validate_group_metadata(node)
+    validated = uom.validate_array_metadata(node)
 
     assert isinstance(validated["attributes"]["uom"], dict)
     assert isinstance(validated["attributes"]["uom"]["ucum"], dict)
