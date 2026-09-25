@@ -55,9 +55,11 @@ def test_validates_as_node_metadata() -> None:
     """The result is directly usable as a node's `attributes`."""
     for module, kwargs in CASES:
         attrs = module.create_convention_attrs(**kwargs)
-        node: Any = {"zarr_format": 3, "node_type": "group", "attributes": attrs}
+        # uom is the one array-only convention; every other case fits a group.
+        node_type = "array" if module is uom else "group"
+        node: Any = {"zarr_format": 3, "node_type": node_type, "attributes": attrs}
         expected = {**node, "attributes": validate_json_object(attrs)}
-        validated = module.validate_group_metadata(node)
+        validated = module.validate_node_metadata(node)
         assert validated == expected
         assert validated is not node
 

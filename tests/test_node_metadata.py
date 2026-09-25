@@ -60,11 +60,12 @@ def test_valid_documents_pass() -> None:
         (spatial, array_node(_spatial_grid())),
         (spatial, group_node(_spatial_grid())),
         (spatial, group_node(_spatial_footprint())),
-        # proj, license and uom apply to both node types
+        # proj and license apply to both node types
         (proj, array_node(proj.create_convention_attrs(code="EPSG:4326"))),
         (proj, group_node(proj.create_convention_attrs(code="EPSG:4326"))),
         (license_, array_node(license_.create_convention_attrs(spdx="MIT"))),
         (license_, group_node(license_.create_convention_attrs(spdx="MIT"))),
+        # uom is array-only
         (uom, array_node(uom.create_convention_attrs(ucum={"unit": "m"}))),
         # multiscales and stac are group-only
         (multiscales, group_node(_multiscales_attrs())),
@@ -103,6 +104,14 @@ def test_stac_rejects_array_nodes() -> None:
     node = array_node(_stac_attrs())
     with pytest.raises(ValueError, match="does not apply to array nodes"):
         stac.validate_array_metadata(node)
+
+
+def test_uom_rejects_group_nodes() -> None:
+    node = group_node(uom.create_convention_attrs(ucum={"unit": "m"}))
+    with pytest.raises(ValueError, match="does not apply to group nodes"):
+        uom.validate_group_metadata(node)
+    with pytest.raises(ValueError, match="does not apply to group nodes"):
+        uom.validate_node_metadata(node)
 
 
 def test_node_type_mismatch_rejected() -> None:
