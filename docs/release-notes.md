@@ -95,8 +95,11 @@ The blog carries a narrative of this release; this is the itemized list.
   declaration of the same convention in place. Re-inserting at another revision
   therefore updates the declaration instead of leaving two entries claiming the
   same convention.
-- `zarr-metadata >= 0.5` is a runtime dependency; its `JSONValue` and Zarr v3
-  document TypedDicts are what the node-level validators accept and return.
+- The node-level validators' document types and `JSONValue` are structurally
+  identical to
+  [zarr-metadata](https://zarr.readthedocs.io/projects/zarr-metadata/en/latest/)'s,
+  so zarr-metadata documents pass in and out with no cast. zarr-metadata is not
+  a dependency; `typing_extensions` remains the only one.
 
 ### Fixed
 
@@ -135,8 +138,8 @@ The blog carries a narrative of this release; this is the itemized list.
 ### Breaking
 
 - `zarr_cm.JsonValue` and `zarr_cm.JsonDict` were renamed to `JSONValue` and
-  `JSONDict` (the `JSONValue` is zarr-metadata's own). There is no alias for the
-  old spellings.
+  `JSONDict`, matching zarr-metadata's spelling. There is no alias for the old
+  spellings.
 - `zarr_cm.CONVENTION_NAMES` contains `"proj"`, not `"geo-proj"`, and the
   functions that _report_ names — `detect_revisions()`, `extract_all()` — key
   their results by `"proj"`. Code that keyed on `"geo-proj"` in those results
