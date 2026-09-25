@@ -64,9 +64,9 @@ print(result)
     'zarr_conventions': [
         {
             'uuid': 'f17cb550-5864-4468-aeb7-f3180cfb622f',
-            'schema_url': 'https://raw.githubusercontent.com/zarr-conventions/proj/5ca5b2f92e5c7245f957d9128b289ee535f0720d/schema.json',
-            'spec_url': 'https://github.com/zarr-conventions/proj/blob/5ca5b2f92e5c7245f957d9128b289ee535f0720d/README.md',
-            'name': 'proj:',
+            'schema_url': 'https://raw.githubusercontent.com/zarr-conventions/proj/refs/tags/v0.1/schema.json',
+            'spec_url': 'https://github.com/zarr-conventions/proj/blob/v0.1/README.md',
+            'name': 'proj',
             'description': 'Coordinate reference system information for geospatial data',
         }
     ],
@@ -119,13 +119,13 @@ documents zarr-cm writes always carry the canonical `SCHEMA_URL`.
 
 The aliases are not hypothetical. Two kinds exist today:
 
-- **Release tag URLs.** The `proj` and `spatial` `r3` revisions write a
-  commit-pinned `SCHEMA_URL`, but the upstream `v0.1` tag points at that same
-  commit, and the tag URL
+- **Commit-pinned URLs.** The `proj` and `spatial` `r3` revisions write the
+  upstream `v0.1` tag URL
   (`https://raw.githubusercontent.com/zarr-conventions/proj/refs/tags/v0.1/schema.json`
-  and its `spatial` counterpart) is the schema's own `$id` and the `schema_url`
-  every upstream README example declares. Those URLs are aliases of `r3`, so a
-  document written by following upstream's own instructions reads as `r3`.
+  and its `spatial` counterpart), which the v0.1 schemas require as a `const`.
+  Earlier `zarr-cm` releases wrote a URL pinned to the commit that tag points at
+  instead. Those commit URLs are aliases of `r3`, so documents written by those
+  releases still read as `r3`.
 - **Draft-era URLs.** Between the conventions' first drafts (December 2025) and
   their `v0.1` releases (June 2026), the spec READMEs published example
   declarations whose `schema_url` pointed at a `refs/tags/v1` tag that was never
@@ -320,7 +320,7 @@ attrs = create_many(
     }
 )
 print([cmo["name"] for cmo in attrs["zarr_conventions"]])
-#> ['proj:', 'spatial:', 'multiscales']
+#> ['proj', 'spatial', 'multiscales']
 ```
 
 <!-- blacken-docs:on -->
@@ -346,7 +346,7 @@ print(latest_revisions())
 
 cmo = convention_metadata("proj")
 print(cmo["name"], cmo["uuid"])
-#> proj: f17cb550-5864-4468-aeb7-f3180cfb622f
+#> proj f17cb550-5864-4468-aeb7-f3180cfb622f
 
 # Registry entries are keyed on schema_url, which pins the revision
 print(convention_metadata("proj", revision="r2")["schema_url"] == cmo["schema_url"])

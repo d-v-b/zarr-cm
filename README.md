@@ -94,9 +94,9 @@ print(result)
     'zarr_conventions': [
         {
             'uuid': 'f17cb550-5864-4468-aeb7-f3180cfb622f',
-            'schema_url': 'https://raw.githubusercontent.com/zarr-conventions/proj/5ca5b2f92e5c7245f957d9128b289ee535f0720d/schema.json',
-            'spec_url': 'https://github.com/zarr-conventions/proj/blob/5ca5b2f92e5c7245f957d9128b289ee535f0720d/README.md',
-            'name': 'proj:',
+            'schema_url': 'https://raw.githubusercontent.com/zarr-conventions/proj/refs/tags/v0.1/schema.json',
+            'spec_url': 'https://github.com/zarr-conventions/proj/blob/v0.1/README.md',
+            'name': 'proj',
             'description': 'Coordinate reference system information for geospatial data',
         }
     ],
@@ -123,11 +123,13 @@ expose package-local revision labels ordered oldest → newest. Today `spatial`
 and `proj` ship `r2` and `r3`, while `multiscales` ships only `r2`; more are
 added as upstream conventions evolve.
 
-Each revision pins its emitted `schema_url`/`spec_url` to the **upstream commit
-SHA** it was snapshotted from, so a written document is self-describing: the
-`uuid` says _which_ convention, and the pinned `schema_url` says _which_
-revision. Writes default to the latest revision; reads auto-detect the revision
-from the document's `schema_url` (overridable with a `revision=` argument).
+Each revision pins its emitted `schema_url`/`spec_url` to an immutable upstream
+reference — the release tag where one exists (`v0.1` for the latest revisions),
+otherwise the commit SHA it was snapshotted from — so a written document is
+self-describing: the `uuid` says _which_ convention, and the pinned `schema_url`
+says _which_ revision. Writes default to the latest revision; reads auto-detect
+the revision from the document's `schema_url` (overridable with a `revision=`
+argument).
 
 ### Why there is no `r1`
 
