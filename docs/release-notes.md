@@ -12,13 +12,11 @@ Fixed, Breaking, Internal — include only the ones with content. -->
 
 ## 0.5.0 (unreleased)
 
-The blog carries a narrative of this release; this is the itemized list.
-
 ### Highlights
 
-- A new convention: `zarr_cm.stac` supports the
-  [STAC convention](https://github.com/zarr-conventions/stac), attaching a STAC
-  Item or Collection to a Zarr group.
+- A sixth convention: [`stac`](https://github.com/zarr-conventions/stac) (v0.1)
+  — embed a STAC Item or Collection in a Zarr group's attributes, or reference
+  one by store key or link.
 - Whole-document validation: `validate_group_metadata`,
   `validate_array_metadata` and `validate_node_metadata` take a complete
   `zarr.json` document and check the rules that depend on the node type — the
@@ -36,11 +34,16 @@ The blog carries a narrative of this release; this is the itemized list.
 
 ### Added
 
-- `zarr_cm.stac`: support for the
-  [STAC convention](https://github.com/zarr-conventions/stac) (v0.1), which
-  attaches a STAC Item or Collection to a Zarr group via `stac:item`,
-  `stac:collection`, `stac:key`, or `stac:link` (exactly one required).
-  Group-only, single revision.
+- `zarr_cm.stac`: the STAC convention (single revision `v0.1`, group-only —
+  arrays are rejected like `multiscales`). Exactly one of `stac:item`,
+  `stac:collection`, `stac:key`, `stac:link` must be present; embedded
+  Items/Collections are checked only for being JSON objects — validating them as
+  STAC is STAC's own job. Ships the full module surface (`create`,
+  `create_convention_attrs`, `insert`, `extract`, `validate`, the node-level
+  validators), participates in every multi-convention function (`"stac"` is in
+  `CONVENTION_NAMES`), and exports `StacAttrs`, `StacConventionAttrs` and
+  `StacLink` at the top level. Tracked by the upstream drift check and covered
+  by the property-based tests like every other convention.
 - `validate_group_metadata`, `validate_array_metadata`, `validate_node_metadata`
   on every convention module and revision submodule; typed as
   `GroupMetadata[…]`, `ArrayMetadata[…]`, `Metadata[…]` documents whose
@@ -65,7 +68,10 @@ The blog carries a narrative of this release; this is the itemized list.
   `Metadata`, `ArrayMetadataInput`, `GroupMetadataInput`, `NodeMetadataInput`,
   and the JSON aliases `JSONValue`, `JSONDict`.
 - Every example under `examples/` is now a page on the docs site, and this
-  release-notes page and a developer blog were added to the docs.
+  release-notes page was added to the docs.
+- Every spec-defined TypedDict's docstring links to the section of the spec that
+  defines its shape, pinned to the same commit or tag the module's `SPEC_URL`
+  uses; a test keeps the next convention from arriving without one.
 - A `justfile` collects the development tasks (`just check`, `just test`,
   `just lint`, `just typecheck`, `just docs`, …).
 
@@ -87,8 +93,11 @@ The blog carries a narrative of this release; this is the itemized list.
   declaration of the same convention in place. Re-inserting at another revision
   therefore updates the declaration instead of leaving two entries claiming the
   same convention.
-- `zarr-metadata >= 0.5` is a runtime dependency; its `JSONValue` and Zarr v3
-  document TypedDicts are what the node-level validators accept and return.
+- The node-level validators' document types and `JSONValue` are structurally
+  identical to
+  [zarr-metadata](https://zarr.readthedocs.io/projects/zarr-metadata/en/latest/)'s,
+  so zarr-metadata documents pass in and out with no cast. zarr-metadata is not
+  a dependency; `typing_extensions` remains the only one.
 
 ### Fixed
 
@@ -110,6 +119,14 @@ The blog carries a narrative of this release; this is the itemized list.
   alone (legal per the spec, which requires any one of `uuid`, `schema_url`,
   `spec_url`) was invisible to `detect`, `validate`, `extract` and the `*_all`
   functions.
+- A `zarr_conventions` entry with _no_ identifier at all (neither `uuid`,
+  `schema_url` nor `spec_url` — which the spec forbids) was accepted by every
+  read and write path; `validate_convention_metadata_object` existed but was
+  never called. Every path that parses `zarr_conventions` now enforces it.
+- Reading a `zarr_conventions` entry silently dropped any field beyond the five
+  the spec defines, so `insert` on attributes carrying a foreign declaration
+  with a future field lost that field. Unknown fields now pass through
+  untouched; only the known fields are validated.
 - The convention TypedDicts' annotations resolve at runtime again, so
   `typing.get_type_hints()` and pydantic's `model_rebuild()` work on them
   without `NameError`.
@@ -119,8 +136,8 @@ The blog carries a narrative of this release; this is the itemized list.
 ### Breaking
 
 - `zarr_cm.JsonValue` and `zarr_cm.JsonDict` were renamed to `JSONValue` and
-  `JSONDict` (the `JSONValue` is zarr-metadata's own). There is no alias for the
-  old spellings.
+  `JSONDict`, matching zarr-metadata's spelling. There is no alias for the old
+  spellings.
 - `zarr_cm.CONVENTION_NAMES` contains `"proj"`, not `"geo-proj"`, and the
   functions that _report_ names — `detect_revisions()`, `extract_all()` — key
   their results by `"proj"`. Code that keyed on `"geo-proj"` in those results
@@ -141,6 +158,56 @@ The blog carries a narrative of this release; this is the itemized list.
 - `*ConventionAttrs.zarr_conventions` is typed
   `Sequence[ConventionMetadataObject]` rather than
   `tuple[ConventionMetadataObject, ...]` (type-level only).
+- `ConventionMetadataObject` is a closed TypedDict (`closed=True`), per the
+  spec's "MUST NOT contain additional fields". Typed construction of a
+  declaration with extra fields — including through a pydantic model — is now
+  rejected. Reading is unaffected: documents carrying unknown declaration fields
+  still parse, and the fields are preserved.
+- A `zarr_conventions` entry lacking every identifier (`uuid`, `schema_url`,
+  `spec_url`) now raises `ValueError` wherever `zarr_conventions` is parsed,
+  including `validate_all`, `detect_revisions`, `insert` and `extract`.
+
+### Upgrading from 0.4
+
+Working through this list top to bottom upgrades a 0.4 codebase; each item names
+the symptom of skipping it.
+
+1. **Rename the JSON aliases.** `JsonValue` → `JSONValue`, `JsonDict` →
+   `JSONDict`, everywhere. The old names no longer import.
+2. **Key results on `"proj"`.** `detect_revisions()` and `extract_all()` report
+   the CRS convention as `"proj"`; code doing `extracted["geo-proj"]` gets a
+   `KeyError`. Passing `"geo-proj"` _in_ — to `create_many`, `validate_many`,
+   `revisions=` — still works.
+3. **Decide what an unrecognized `schema_url` should mean.** 0.4 silently
+   validated such documents as the latest revision; 0.5 raises `ValueError` from
+   `validate`/`extract` and the node-level validators. If you read documents
+   whose declarations you do not control, probe with `detect()` first (it
+   returns `None` for an unrecognized URL) or catch the `ValueError`; to
+   deliberately reproduce the old fallback, pin `revision=` explicitly. Most
+   documents that failed this way under 0.4.x were declaring the upstream tag
+   URLs, which 0.5 recognizes — so expect _fewer_ failures, not more.
+4. **Stop assuming `spatial:dimensions` is present.** It is `NotRequired` in
+   `SpatialAttrs`, so index it with `.get()`. A validated _group_ document may
+   genuinely lack it; arrays are still required to carry it, enforced by
+   `validate_array_metadata`.
+5. **Give every declaration an identifier.** A `zarr_conventions` entry with
+   none of `uuid`, `schema_url`, `spec_url` now raises `ValueError` wherever the
+   array is parsed — reads and writes. Such an entry was always invalid per the
+   spec; fix the data.
+6. **Do not put extra fields on a `ConventionMetadataObject` you construct.**
+   The TypedDict is closed: type checkers and pydantic now reject additional
+   fields. Unknown fields on declarations you _read_ still pass through
+   untouched.
+7. **Type-level only:** `*ConventionAttrs.zarr_conventions` is
+   `Sequence[ConventionMetadataObject]`, not `tuple[...]`; annotations that
+   spelled the tuple form may need updating. No runtime change.
+8. **Rewrite stored `proj`/`spatial` declarations if they must pass the
+   published schemas.** 0.4 wrote commit-pinned `schema_url`/`spec_url` values
+   and `"proj:"`/`"spatial:"` names, which fail the upstream v0.1 schemas (and
+   validators built on them, such as inspect.geozarr.org). 0.5 still reads those
+   documents as `r3`; `insert(..., overwrite=True)` replaces the declaration
+   with the canonical one. Code that compares declarations against hard-coded
+   0.4 values (`name == "proj:"`, the commit URLs) must update.
 
 ### Internal
 
@@ -150,7 +217,8 @@ The blog carries a narrative of this release; this is the itemized list.
   `tests/test_properties.py` runs the round-trip, detection, declaration and
   multi-convention invariants across the whole registry.
 - Vendored upstream schemas for every supported revision under `tests/schemas/`,
-  and a weekly workflow that diffs them against upstream `main`.
+  and a weekly workflow that diffs them against upstream `main` and opens an
+  issue when they drift.
 - The drift check now covers `license` and `uom` too, and a test pins its
   tracked set to `zarr_cm.CONVENTION_NAMES` so a new convention can't ship
   untracked.

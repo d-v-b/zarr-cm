@@ -16,7 +16,6 @@ from pytest_examples import CodeExample, EvalExample, find_examples
         find_examples(
             "docs/index.md",
             "README.md",
-            "docs/blog/posts/2026-08-zarr-cm-0-5.md",
         )
     ),
     ids=str,
