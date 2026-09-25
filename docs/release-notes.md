@@ -151,6 +151,9 @@ The blog carries a narrative of this release; this is the itemized list.
   multi-convention invariants across the whole registry.
 - Vendored upstream schemas for every supported revision under `tests/schemas/`,
   and a weekly workflow that diffs them against upstream `main`.
+- The drift check now covers `license` and `uom` too, and a test pins its
+  tracked set to `zarr_cm.CONVENTION_NAMES` so a new convention can't ship
+  untracked.
 
 ## 0.4.1 — 2026-06-21
 

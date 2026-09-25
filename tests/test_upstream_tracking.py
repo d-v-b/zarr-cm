@@ -21,7 +21,8 @@ SCRIPT = REPO_ROOT / ".github" / "scripts" / "check_upstream.py"
 
 def _tracked() -> dict[str, dict[str, str]]:
     spec = importlib.util.spec_from_file_location("check_upstream", SCRIPT)
-    assert spec is not None and spec.loader is not None
+    assert spec is not None
+    assert spec.loader is not None
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     tracked: dict[str, dict[str, str]] = module.TRACKED
