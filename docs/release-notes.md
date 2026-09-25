@@ -10,7 +10,7 @@ carries the full pull-request list.
 <!-- Keep the newest version at the top. Sections: Highlights, Added, Changed,
 Fixed, Breaking, Internal — include only the ones with content. -->
 
-## 0.5.0 (unreleased)
+## 0.5.0 — 2026-09-25
 
 ### Highlights
 
