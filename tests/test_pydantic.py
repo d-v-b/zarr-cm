@@ -107,6 +107,9 @@ _TYPED_DICTS = [
     (zarr_cm, "StacAttrs"),
     (zarr_cm, "StacConventionAttrs"),
     (zarr_cm, "StacLink"),
+    (zarr_cm, "DggsAttrs"),
+    (zarr_cm, "DggsConventionAttrs"),
+    (zarr_cm, "DggsEllipsoid"),
 ]
 
 

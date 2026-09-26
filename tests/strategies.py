@@ -21,8 +21,8 @@ from typing import TYPE_CHECKING, Any, NamedTuple
 from hypothesis import strategies as st
 
 import zarr_cm
+from zarr_cm import dggs, multiscales, proj, spatial, stac, uom
 from zarr_cm import license as license_
-from zarr_cm import multiscales, proj, spatial, stac, uom
 
 if TYPE_CHECKING:
     from types import ModuleType
@@ -163,6 +163,77 @@ STAC_KWARGS: st.SearchStrategy[Kwargs] = st.sampled_from(
     )
 )
 
+# --- dggs ----------------------------------------------------------------
+
+_NON_NEGATIVE = st.floats(min_value=0, allow_nan=False, allow_infinity=False, width=32)
+_DGGS_ELLIPSOID = st.one_of(
+    st.fixed_dictionaries({"name": text, "radius": _NON_NEGATIVE}),
+    st.fixed_dictionaries(
+        {
+            "name": text,
+            "semi_major_axis": _NON_NEGATIVE,
+            "semi_minor_axis": _NON_NEGATIVE,
+        }
+    ),
+    st.fixed_dictionaries(
+        {
+            "name": text,
+            "semi_major_axis": _NON_NEGATIVE,
+            "inverse_flattening": _NON_NEGATIVE,
+        }
+    ),
+)
+_DGGS_PARAMETERS = st.dictionaries(
+    st.from_regex(r"x_[a-z]{1,5}", fullmatch=True), json_values, min_size=1, max_size=2
+)
+_HEALPIX_LEVEL = st.integers(0, dggs.HEALPIX_MAX_LEVEL) | st.just(
+    dggs.HEALPIX_MAX_LEVEL
+)
+
+
+@st.composite
+def _dggs_kwargs(draw: st.DrawFn) -> Kwargs:
+    """Valid dggs `create()` input: a generic DGGS or HEALPix, every scheme family."""
+    kwargs: Kwargs = {"spatial_dimension": draw(text)}
+    if draw(st.booleans()):
+        scheme = draw(st.sampled_from(["nested", "ring", "zuniq", "nuniq", "custom"]))
+        if scheme in {"nested", "ring"}:
+            level = draw(_HEALPIX_LEVEL)
+        elif scheme.endswith("uniq"):
+            level = draw(st.none() | _HEALPIX_LEVEL)
+        else:
+            level = draw(st.none() | st.integers(0, 1000))
+        kwargs |= {"name": "healpix", "indexing_scheme": scheme}
+        # The HEALPix compression table: compacted is zuniq at a null level,
+        # ranges is nested at level 29.
+        if level is None:
+            compressions = ["none", "compacted"] if scheme == "zuniq" else ["none"]
+        elif scheme == "nested" and level == dggs.HEALPIX_MAX_LEVEL:
+            compressions = ["none", "ranges"]
+        else:
+            compressions = ["none"]
+    else:
+        kwargs["name"] = draw(
+            st.from_regex(r"[a-z][a-z0-9_]{0,9}", fullmatch=True).filter(
+                lambda n: n != "healpix"
+            )
+        )
+        level = draw(st.none() | st.integers(0, 1000))
+        compressions = ["none"] if level is None else list(dggs.COMPRESSIONS)
+    kwargs["refinement_level"] = level
+    # A null level means variable-sized cells, which need an explicit coordinate.
+    if level is None or draw(st.booleans()):
+        kwargs["coordinate"] = draw(text)
+        kwargs["compression"] = draw(st.sampled_from(compressions))
+    if draw(st.booleans()):
+        kwargs["ellipsoid"] = draw(_DGGS_ELLIPSOID)
+    if draw(st.booleans()):
+        kwargs["parameters"] = draw(_DGGS_PARAMETERS)
+    return kwargs
+
+
+DGGS_KWARGS: st.SearchStrategy[Kwargs] = _dggs_kwargs()
+
 
 # --- the registry ------------------------------------------------------------
 
@@ -240,6 +311,7 @@ REVISIONS: tuple[Revision, ...] = (
     ),
     Revision("uom", None, uom, uom, _schema("uom.json"), "array", UOM_KWARGS),
     Revision("stac", None, stac, stac, _schema("stac.json"), "group", STAC_KWARGS),
+    Revision("dggs", None, dggs, dggs, _schema("dggs.json"), "array", DGGS_KWARGS),
 )
 
 REVISIONED: tuple[Revision, ...] = tuple(r for r in REVISIONS if r.label is not None)

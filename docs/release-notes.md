@@ -10,6 +10,25 @@ carries the full pull-request list.
 <!-- Keep the newest version at the top. Sections: Highlights, Added, Changed,
 Fixed, Breaking, Internal — include only the ones with content. -->
 
+## Unreleased
+
+### Added
+
+- `zarr_cm.dggs`: the
+  [Discrete Global Grid Systems convention](https://github.com/zarr-conventions/dggs)
+  (single revision `v1`, valid on groups and arrays). Describes the DGGS a node
+  is laid out on under the `dggs` key: `name`, `refinement_level` and
+  `spatial_dimension` are required; `ellipsoid`, `coordinate`/`compression` and
+  DGGS-specific parameters (HEALPix's `indexing_scheme`) are optional.
+  `validate` enforces the README's rules, including several the upstream schema
+  does not encode yet: lower-cased names, `coordinate` and `compression` given
+  together, a `null` level only with an uncompressed coordinate, one unambiguous
+  ellipsoid shape, and the HEALPix level ranges and compression table. Ships the
+  full module surface, participates in every multi-convention function (`"dggs"`
+  is in `CONVENTION_NAMES`), and exports `DggsAttrs`, `DggsConventionAttrs` and
+  `DggsEllipsoid` at the top level. Tracked by the upstream drift check and
+  covered by the property-based tests.
+
 ## 0.5.0 — 2026-09-25
 
 ### Highlights

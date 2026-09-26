@@ -23,7 +23,7 @@ from zarr_cm import (
 
 def test_convention_names_constant() -> None:
     assert (
-        frozenset({"proj", "spatial", "multiscales", "license", "uom", "stac"})
+        frozenset({"proj", "spatial", "multiscales", "license", "uom", "stac", "dggs"})
         == CONVENTION_NAMES
     )
 
@@ -48,6 +48,7 @@ def test_all_convention_keys_constant() -> None:
                 "stac:collection",
                 "stac:key",
                 "stac:link",
+                "dggs",
             }
         )
         == ALL_CONVENTION_KEYS
@@ -81,9 +82,10 @@ def test_create_many_all() -> None:
             "license": {"spdx": "MIT"},
             "uom": {"ucum": {"unit": "kg"}},
             "stac": {"stac:key": "stac.json"},
+            "dggs": {"name": "h3", "refinement_level": 5, "spatial_dimension": "cells"},
         }
     )
-    assert len(as_sequence(result["zarr_conventions"])) == 6
+    assert len(as_sequence(result["zarr_conventions"])) == 7
     assert result["proj:code"] == "EPSG:4326"
     assert result["spatial:dimensions"] == ["y", "x"]
     multiscales_data = as_mapping(result["multiscales"])
@@ -93,6 +95,7 @@ def test_create_many_all() -> None:
     ucum = as_mapping(uom_data["ucum"])
     assert ucum["unit"] == "kg"
     assert result["stac:key"] == "stac.json"
+    assert as_mapping(result["dggs"])["name"] == "h3"
 
 
 def test_create_many_invalid_name() -> None:
@@ -374,6 +377,7 @@ def test_latest_revisions() -> None:
         ("license", None, zarr_cm.license.CMO),
         ("uom", None, zarr_cm.uom.CMO),
         ("stac", None, zarr_cm.stac.CMO),
+        ("dggs", None, zarr_cm.dggs.CMO),
     ],
 )
 def test_convention_metadata(
