@@ -168,7 +168,23 @@ def create_convention_attrs(
 def insert(
     attrs: Mapping[str, JSONValue], data: StacAttrs, *, overwrite: bool = False
 ) -> JSONDict:
-    """Insert stac convention metadata into an attributes dict."""
+    """Insert stac convention metadata into an attributes dict.
+
+    Exactly one stac field may be present, so any stac field already in
+    *attrs* collides with *data* -- not only the same key. Without
+    `overwrite` that raises `ValueError`; with it, the existing stac fields
+    are dropped and replaced by *data*'s, rather than left beside them (a
+    `stac:item` next to a newly inserted `stac:key` would be invalid).
+    """
+    existing = sorted(CONVENTION_KEYS & attrs.keys())
+    if existing and not overwrite:
+        msg = (
+            "attrs already contains stac fields that would be overwritten by "
+            f"convention data: {existing}. Exactly one stac field may be "
+            "present; pass overwrite=True to replace them."
+        )
+        raise ValueError(msg)
+    attrs = {k: v for k, v in attrs.items() if k not in CONVENTION_KEYS}
     return insert_convention(
         attrs, CMO, data, overwrite=overwrite, schema_urls=RECOGNIZED_SCHEMA_URLS
     )

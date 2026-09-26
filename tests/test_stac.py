@@ -106,6 +106,32 @@ def test_insert_collision_raises() -> None:
         stac.insert(attrs, data)
 
 
+@pytest.mark.parametrize(
+    "existing",
+    [
+        {"item": _ITEM},
+        {"collection": _COLLECTION},
+        {"key": "other.json"},
+        {"link": _LINK},
+    ],
+)
+def test_insert_overwrite_replaces_every_stac_field(existing: dict[str, Any]) -> None:
+    # Exactly one stac field may be present: overwriting must drop the old
+    # field even when it is a different key from the one being inserted.
+    attrs = stac.insert({"foo": "bar"}, stac.create(**existing))
+    data = stac.create(key="stac.json")
+    inserted = stac.insert(attrs, data, overwrite=True)
+    remaining, extracted = stac.extract(inserted)
+    assert extracted == data
+    assert remaining == {"foo": "bar"}
+
+
+def test_insert_different_stac_field_collision_raises() -> None:
+    attrs = stac.insert({}, stac.create(item=_ITEM))
+    with pytest.raises(ValueError, match=r"overwritten.*\['stac:item'\]"):
+        stac.insert(attrs, stac.create(key="stac.json"))
+
+
 def test_extract_missing_convention() -> None:
     attrs = {"foo": "bar"}
     remaining, extracted = stac.extract(attrs)
