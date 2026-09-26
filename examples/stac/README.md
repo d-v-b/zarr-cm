@@ -16,7 +16,8 @@ The example shows how to:
 
 Exactly one of `stac:item`, `stac:collection`, `stac:key`, or `stac:link` must
 be present on any given document; `stac.create`/`create_convention_attrs`
-enforce that on the way out.
+enforce that on the way out, and `stac.insert` treats any stac field already in
+the attributes as a collision (with `overwrite=True`, it is replaced).
 
 Like every `zarr-cm` convention, this module works on plain attributes/metadata
 dicts and does no Zarr store I/O. `stac:key` only carries and validates the key

@@ -10,6 +10,18 @@ carries the full pull-request list.
 <!-- Keep the newest version at the top. Sections: Highlights, Added, Changed,
 Fixed, Breaking, Internal — include only the ones with content. -->
 
+## Unreleased
+
+### Fixed
+
+- `stac.insert()` checked collisions key by key, so inserting one stac field
+  into attributes that already carried a _different_ one (e.g. a `stac:key` over
+  an existing `stac:item`) produced a document with two stac fields, which the
+  spec's "exactly one" rule forbids — with `overwrite=True` as well as without.
+  It now raises `ValueError` on any existing stac field, and with
+  `overwrite=True` replaces the existing field instead of leaving it beside the
+  new one.
+
 ## 0.5.0 — 2026-09-25
 
 ### Highlights
