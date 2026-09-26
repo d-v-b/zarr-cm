@@ -33,6 +33,8 @@ examples/
 - [uom](uom/README.md) -- units of measurement as UCUM codes (single revision)
 - [stac](stac/README.md) -- STAC Item/Collection metadata on a group (single
   revision, group-only)
+- [ref](ref/README.md) -- references from an array or group to external Zarr
+  nodes (single revision)
 
 ## Adding New Examples
 

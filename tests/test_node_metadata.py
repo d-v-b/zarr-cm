@@ -12,7 +12,7 @@ from typing import Any
 import pytest
 
 from zarr_cm import license as license_
-from zarr_cm import multiscales, proj, spatial, stac, uom
+from zarr_cm import multiscales, proj, ref, spatial, stac, uom
 from zarr_cm._core import validate_json_object
 
 # The v3 array fields below zarr-cm never inspects; a realistic stub keeps the
@@ -53,6 +53,10 @@ def _stac_attrs() -> Any:
     return stac.create_convention_attrs(key="stac.json")
 
 
+def _ref_attrs() -> Any:
+    return ref.create_convention_attrs(node="../sibling")
+
+
 def test_valid_documents_pass() -> None:
     """Reasonable node/convention combinations validate, at every layer."""
     cases: list[tuple[Any, Any]] = [
@@ -60,11 +64,13 @@ def test_valid_documents_pass() -> None:
         (spatial, array_node(_spatial_grid())),
         (spatial, group_node(_spatial_grid())),
         (spatial, group_node(_spatial_footprint())),
-        # proj and license apply to both node types
+        # proj, license and ref apply to both node types
         (proj, array_node(proj.create_convention_attrs(code="EPSG:4326"))),
         (proj, group_node(proj.create_convention_attrs(code="EPSG:4326"))),
         (license_, array_node(license_.create_convention_attrs(spdx="MIT"))),
         (license_, group_node(license_.create_convention_attrs(spdx="MIT"))),
+        (ref, array_node(_ref_attrs())),
+        (ref, group_node(_ref_attrs())),
         # uom is array-only
         (uom, array_node(uom.create_convention_attrs(ucum={"unit": "m"}))),
         # multiscales and stac are group-only
@@ -220,6 +226,13 @@ def test_stac_narrowing_rejects_wrong_field_type() -> None:
     attrs["stac:key"] = 1
     with pytest.raises(TypeError, match="'stac:key' must be a string"):
         stac.validate_group_metadata(group_node(attrs))
+
+
+def test_ref_narrowing_rejects_wrong_field_type() -> None:
+    attrs: Any = _ref_attrs()
+    attrs["ref"]["node"] = 1
+    with pytest.raises(TypeError, match="'node' must be a string"):
+        ref.validate_array_metadata(array_node(attrs))
 
 
 def test_revisioned_validation_prepares_node_once(

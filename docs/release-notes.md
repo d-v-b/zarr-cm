@@ -10,6 +10,23 @@ carries the full pull-request list.
 <!-- Keep the newest version at the top. Sections: Highlights, Added, Changed,
 Fixed, Breaking, Internal — include only the ones with content. -->
 
+## Unreleased
+
+### Added
+
+- `zarr_cm.ref`: the
+  [ref convention](https://github.com/R-CF/zarr_convention_ref), which points
+  from an array's or group's attributes to another Zarr node — in the same store
+  (a path relative to the referencing node) or in another store (a `uri` plus an
+  absolute path) — and optionally to an item in that node's `zarr.json` via an
+  RFC 6901 JSON pointer. Applies to arrays and groups. Single revision `r1`,
+  modeled on upstream `main` at commit `b5dfde6`: upstream publishes only
+  `main`-branch schema/spec URLs (its schema requires them as `const`s), and its
+  `v1` tag predates the current `node` field. Ships the full module surface,
+  participates in every multi-convention function (`"ref"` is in
+  `CONVENTION_NAMES`), exports `RefAttrs` and `RefConventionAttrs` at the top
+  level, and is tracked by the upstream drift check.
+
 ## 0.5.0 — 2026-09-25
 
 ### Highlights
