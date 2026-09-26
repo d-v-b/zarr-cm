@@ -1,10 +1,12 @@
 from __future__ import annotations
 
+from typing import Any
+
 import pytest
 
 import zarr_cm
+from zarr_cm import coords, multiscales, proj, spatial, stac, uom
 from zarr_cm import license as license_
-from zarr_cm import multiscales, proj, spatial, stac, uom
 
 
 def test_spatial_detect_known_revisions() -> None:
@@ -126,3 +128,24 @@ def test_stac_detect_unknown_url_returns_none() -> None:
 def test_stac_detect_absent_raises() -> None:
     with pytest.raises(ValueError, match="stac"):
         stac.detect({"foo": "bar"})
+
+
+def test_coords_detect_present_returns_v1() -> None:
+    doc = coords.insert(
+        {}, coords.create(coordinates={"band": {"type": "inline", "values": [1, 2]}})
+    )
+    assert coords.detect(doc) == "v1"
+
+
+def test_coords_detect_unknown_url_returns_none() -> None:
+    other = "https://example/other.json"
+    doc: dict[str, Any] = {
+        "coords:coordinates": {},
+        "zarr_conventions": [{"uuid": coords.UUID, "schema_url": other}],
+    }
+    assert coords.detect(doc) is None
+
+
+def test_coords_detect_absent_raises() -> None:
+    with pytest.raises(ValueError, match="coords"):
+        coords.detect({"foo": "bar"})

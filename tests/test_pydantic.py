@@ -107,6 +107,12 @@ _TYPED_DICTS = [
     (zarr_cm, "StacAttrs"),
     (zarr_cm, "StacConventionAttrs"),
     (zarr_cm, "StacLink"),
+    (zarr_cm, "CoordsAttrs"),
+    (zarr_cm, "CoordsConventionAttrs"),
+    (zarr_cm, "CoordsArrayDescriptor"),
+    (zarr_cm, "CoordsReferenceDescriptor"),
+    (zarr_cm, "CoordsInlineDescriptor"),
+    (zarr_cm, "CoordsIntervalDescriptor"),
 ]
 
 

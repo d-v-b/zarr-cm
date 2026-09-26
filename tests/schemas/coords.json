@@ -1,0 +1,180 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://raw.githubusercontent.com/zarr-conventions/coords/refs/tags/v1/schema.json",
+  "title": "Coordinates Convention (coords:)",
+  "description": "Schema for coords information in Zarr. Properties use the 'coords:' namespace prefix.",
+  "type": "object",
+  "properties": {
+    "zarr_format": {
+      "type": "integer",
+      "description": "Zarr format version"
+    },
+    "node_type": {
+      "type": "string",
+      "enum": ["array", "group"],
+      "description": "Type of Zarr node"
+    },
+    "attributes": {
+      "type": "object",
+      "description": "Zarr attributes containing convention metadata and coords: prefixed properties",
+      "properties": {
+        "zarr_conventions": {
+          "type": "array",
+          "description": "Array of convention metadata objects",
+          "contains": {
+            "$ref": "#/$defs/conventionMetadata"
+          }
+        }
+      },
+      "required": ["zarr_conventions"],
+      "$ref": "#/$defs/coordsAttributes"
+    }
+  },
+  "required": ["zarr_format", "node_type", "attributes"],
+  "additionalProperties": true,
+  "$defs": {
+    "conventionMetadata": {
+      "type": "object",
+      "description": "Coordinates convention metadata object for use in zarr_conventions array",
+      "properties": {
+        "schema_url": {
+          "type": "string",
+          "const": "https://raw.githubusercontent.com/zarr-conventions/coords/refs/tags/v1/schema.json",
+          "description": "URL to the JSON Schema definition for this convention"
+        },
+        "spec_url": {
+          "type": "string",
+          "const": "https://github.com/zarr-conventions/coords/blob/v1/README.md",
+          "description": "URL to the full specification document"
+        },
+        "uuid": {
+          "type": "string",
+          "const": "6ca4454a-658a-4348-a667-b39ced0e58cb",
+          "description": "UUID that permanently identifies this convention"
+        },
+        "name": {
+          "type": "string",
+          "const": "coords",
+          "description": "Human-readable name of the convention"
+        },
+        "description": {
+          "type": "string",
+          "const": "Domain-agnostic mapping between Zarr array index space and coordinate space.",
+          "description": "Brief description of the convention's purpose and usage"
+        }
+      },
+      "anyOf": [
+        { "required": ["schema_url"] },
+        { "required": ["spec_url"] },
+        { "required": ["uuid"] }
+      ],
+      "additionalProperties": false
+    },
+    "coordsAttributes": {
+      "type": "object",
+      "description": "Coordinates properties using coords: key prefix",
+      "properties": {
+        "zarr_conventions": true,
+        "coords:coordinates": {
+          "type": "object",
+          "description": "Map from a coordinate key to a coordinate descriptor. By default the key is a dimension name taken from the Zarr v3 'dimension_names' field of the same array (or the Zarr v2 / Xarray '_ARRAY_DIMENSIONS' attribute), and the descriptor supplies the values for that dimension (a 1-D coordinate variable). The exception is an explicit coordinate array carrying 'indexed_by': there the key is a coordinate name you choose (e.g. 'lat') and 'indexed_by' lists the dimension(s) it varies along — the CF auxiliary-coordinate model, covering point clouds (lat(sample)) and multi-dimensional / curvilinear grids (lat(y,x)).",
+          "additionalProperties": {
+            "oneOf": [
+              {
+                "type": "object",
+                "description": "Explicit coordinate array. Points to a sibling Zarr array via a Zarr-relative path. Coordinate semantics (e.g. CF standard_name, units, axis) are not defined by this convention and MAY appear as additional properties; a future 'cf:' convention may formalize them.",
+                "properties": {
+                  "type": { "const": "array" },
+                  "path": {
+                    "type": "string",
+                    "description": "Zarr-relative path to the coordinate array."
+                  },
+                  "indexed_by": {
+                    "type": "array",
+                    "items": { "type": "string" },
+                    "minItems": 1,
+                    "description": "Dimension(s) this coordinate array is indexed by, used when the map key is a coordinate name rather than a dimension name (CF auxiliary coordinate). Each entry MUST be a dimension name from the array's 'dimension_names'. e.g. ['sample'] for a point-cloud coordinate lat(sample), or ['y','x'] for a curvilinear coordinate lat(y,x). When omitted, the map key itself is the dimension name and the coordinate is 1-D along that dimension."
+                  }
+                },
+                "required": ["type", "path"],
+                "additionalProperties": true
+              },
+              {
+                "type": "object",
+                "description": "Delegation to a named sibling convention that supplies or defines this coordinate. The canonical case is convention 'spatial', whose affine transform (spatial:transform, on the same node or an ancestor group) georeferences the axis — the GeoTIFF / GDAL model. The same mechanism covers temporal, vertical, spectral, lookup, or other future domain-specific conventions.",
+                "properties": {
+                  "type": { "const": "reference" },
+                  "convention": {
+                    "type": "string",
+                    "description": "Name of the sibling convention that supplies or defines this coordinate (e.g. 'spatial' for an affine geotransform)."
+                  }
+                },
+                "required": ["type", "convention"],
+                "additionalProperties": true
+              },
+              {
+                "type": "object",
+                "description": "Inline coordinate values, embedded directly. Intended for short auxiliary axes (e.g. a small band/spectral axis) where allocating a separate Zarr array would be wasteful.",
+                "properties": {
+                  "type": { "const": "inline" },
+                  "values": {
+                    "type": "array",
+                    "description": "Coordinate values."
+                  }
+                },
+                "required": ["type", "values"],
+                "additionalProperties": true
+              },
+              {
+                "type": "object",
+                "description": "Implicit regularly spaced sequence. Equivalent to enumerating start, start+step, ..., end (end inclusive). Two value domains: numeric (start/end/step all JSON numbers) or ISO 8601 (start/end are date-time strings and step is an ISO 8601 duration like 'P1D').",
+                "properties": {
+                  "type": { "const": "interval" },
+                  "start": {
+                    "type": ["number", "string"],
+                    "description": "First value of the sequence. Number for the numeric form; ISO 8601 date-time string for the temporal form."
+                  },
+                  "end": {
+                    "type": ["number", "string"],
+                    "description": "Last value of the sequence (inclusive). Same JSON type as 'start'."
+                  },
+                  "step": {
+                    "type": ["number", "string"],
+                    "description": "Increment between successive values. Number for the numeric form (non-zero; may be negative); ISO 8601 duration string for the temporal form (e.g. 'P1D', 'PT1H')."
+                  }
+                },
+                "required": ["type", "start", "end", "step"],
+                "oneOf": [
+                  {
+                    "description": "Numeric interval.",
+                    "properties": {
+                      "start": { "type": "number" },
+                      "end":   { "type": "number" },
+                      "step":  { "type": "number", "not": { "const": 0 } }
+                    }
+                  },
+                  {
+                    "description": "ISO 8601 temporal interval. 'start' / 'end' are ISO 8601 date-time strings; 'step' is an ISO 8601 duration (starts with 'P').",
+                    "properties": {
+                      "start": { "type": "string" },
+                      "end":   { "type": "string" },
+                      "step":  { "type": "string", "pattern": "^P" }
+                    }
+                  }
+                ],
+                "additionalProperties": true
+              }
+            ]
+          }
+        },
+        "coords:version": {
+          "type": "integer",
+          "const": 1,
+          "description": "Major version of the coords convention this metadata was authored against."
+        }
+      },
+      "required": ["coords:coordinates"],
+      "additionalProperties": true
+    }
+  }
+}

@@ -43,6 +43,7 @@ Python types and utilities for
 | [license](https://github.com/clbarnes/zarr-convention-license) | `zarr_cm.license`                        | License specifiers                      |
 | [uom](https://github.com/clbarnes/zarr-convention-uom)         | `zarr_cm.uom`                            | Units of measurement                    |
 | [stac](https://github.com/zarr-conventions/stac)               | `zarr_cm.stac`                           | STAC metadata for a Zarr group          |
+| [coords](https://github.com/christophenoel/zarr-coords)        | `zarr_cm.coords`                         | Index-to-coordinate mapping             |
 
 Each module provides:
 

@@ -47,6 +47,12 @@ TRACKED: dict[str, dict[str, str]] = {
         "upstream": "https://raw.githubusercontent.com/zarr-conventions/stac/main/schema.json",
         "vendored": ".github/upstream-schemas/stac/d67cd285b930f3297b02563af5270e4a9b84e38e.json",
     },
+    # coords is developed at christophenoel/zarr-coords; the zarr-conventions/coords
+    # repository its schema_url names has not been published yet.
+    "coords": {
+        "upstream": "https://raw.githubusercontent.com/christophenoel/zarr-coords/main/schema.json",
+        "vendored": ".github/upstream-schemas/coords/79c8bdedfed9517991aa87ee216d0942a0593c25.json",
+    },
 }
 
 

@@ -10,6 +10,21 @@ carries the full pull-request list.
 <!-- Keep the newest version at the top. Sections: Highlights, Added, Changed,
 Fixed, Breaking, Internal — include only the ones with content. -->
 
+## Unreleased
+
+### Added
+
+- `zarr_cm.coords`: the
+  [coords convention](https://github.com/christophenoel/zarr-coords) (single
+  revision `v1`, groups and arrays), which maps each dimension of an array to a
+  coordinate descriptor — an explicit coordinate `array` (optionally
+  `indexed_by` other dimensions, for auxiliary and curvilinear coordinates), a
+  `reference` to another convention such as `spatial`, `inline` values, or a
+  regularly spaced `interval` (numeric or ISO 8601). `validate_array_metadata`
+  also checks that every `coords:coordinates` key (or, for auxiliary
+  coordinates, every `indexed_by` entry) is one of the array's
+  `dimension_names`.
+
 ## 0.5.0 — 2026-09-25
 
 ### Highlights

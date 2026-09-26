@@ -21,8 +21,8 @@ from typing import TYPE_CHECKING, Any, NamedTuple
 from hypothesis import strategies as st
 
 import zarr_cm
+from zarr_cm import coords, multiscales, proj, spatial, stac, uom
 from zarr_cm import license as license_
-from zarr_cm import multiscales, proj, spatial, stac, uom
 
 if TYPE_CHECKING:
     from types import ModuleType
@@ -163,6 +163,53 @@ STAC_KWARGS: st.SearchStrategy[Kwargs] = st.sampled_from(
     )
 )
 
+# --- coords --------------------------------------------------------------
+
+
+def _coords_descriptor(
+    kind: str,
+    required: dict[str, st.SearchStrategy[Any]],
+    optional_fields: dict[str, st.SearchStrategy[Any]] | None = None,
+) -> st.SearchStrategy[dict[str, Any]]:
+    fields: dict[str, st.SearchStrategy[Any]] = {"type": st.just(kind), **required}
+    return st.fixed_dictionaries(fields, optional=optional_fields or {})
+
+
+_COORDS_DESCRIPTOR: st.SearchStrategy[dict[str, Any]] = st.one_of(
+    _coords_descriptor(
+        "array",
+        {"path": text},
+        {"indexed_by": st.lists(text, min_size=1, max_size=3)},
+    ),
+    _coords_descriptor("reference", {"convention": text}),
+    _coords_descriptor("inline", {"values": st.lists(json_values, max_size=4)}),
+    _coords_descriptor(
+        "interval",
+        {
+            "start": numbers,
+            "end": numbers,
+            "step": numbers.filter(lambda step: step != 0),
+        },
+    ),
+    _coords_descriptor(
+        "interval",
+        {
+            "start": text,
+            "end": text,
+            "step": st.text(max_size=10).map(lambda rest: "P" + rest),
+        },
+    ),
+)
+
+# Keys are left free: `validate` does not see the array's dimension_names, and
+# the registry below exercises coords on groups, where keys go unchecked.
+COORDS_KWARGS: st.SearchStrategy[Kwargs] = st.fixed_dictionaries(
+    {
+        "coordinates": st.dictionaries(text, _COORDS_DESCRIPTOR, max_size=3),
+        "version": optional(st.just(1)),
+    }
+).map(drop_none)
+
 
 # --- the registry ------------------------------------------------------------
 
@@ -240,6 +287,11 @@ REVISIONS: tuple[Revision, ...] = (
     ),
     Revision("uom", None, uom, uom, _schema("uom.json"), "array", UOM_KWARGS),
     Revision("stac", None, stac, stac, _schema("stac.json"), "group", STAC_KWARGS),
+    # coords applies to both node types, but on arrays its keys must name the
+    # array's dimension_names, which a bare `wrap_attrs` node does not carry.
+    Revision(
+        "coords", None, coords, coords, _schema("coords.json"), "group", COORDS_KWARGS
+    ),
 )
 
 REVISIONED: tuple[Revision, ...] = tuple(r for r in REVISIONS if r.label is not None)

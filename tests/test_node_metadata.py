@@ -11,8 +11,8 @@ from typing import Any
 
 import pytest
 
+from zarr_cm import coords, multiscales, proj, spatial, stac, uom
 from zarr_cm import license as license_
-from zarr_cm import multiscales, proj, spatial, stac, uom
 from zarr_cm._core import validate_json_object
 
 # The v3 array fields below zarr-cm never inspects; a realistic stub keeps the
@@ -53,6 +53,15 @@ def _stac_attrs() -> Any:
     return stac.create_convention_attrs(key="stac.json")
 
 
+def _coords_attrs() -> Any:
+    return coords.create_convention_attrs(
+        coordinates={
+            "time": {"type": "array", "path": "../time"},
+            "y": {"type": "reference", "convention": "spatial"},
+        }
+    )
+
+
 def test_valid_documents_pass() -> None:
     """Reasonable node/convention combinations validate, at every layer."""
     cases: list[tuple[Any, Any]] = [
@@ -70,6 +79,9 @@ def test_valid_documents_pass() -> None:
         # multiscales and stac are group-only
         (multiscales, group_node(_multiscales_attrs())),
         (stac, group_node(_stac_attrs())),
+        # coords keys must name the array's dimension_names; groups are free
+        (coords, {**array_node(_coords_attrs()), "dimension_names": ["time", "y"]}),
+        (coords, group_node(_coords_attrs())),
     ]
     for module, node in cases:
         expected = {**node, "attributes": validate_json_object(node["attributes"])}
@@ -112,6 +124,12 @@ def test_uom_rejects_group_nodes() -> None:
         uom.validate_group_metadata(node)
     with pytest.raises(ValueError, match="does not apply to group nodes"):
         uom.validate_node_metadata(node)
+
+
+def test_coords_rejects_keys_outside_dimension_names() -> None:
+    node: Any = {**array_node(_coords_attrs()), "dimension_names": ["time", "x"]}
+    with pytest.raises(ValueError, match="key 'y' is not one of the array's"):
+        coords.validate_array_metadata(node)
 
 
 def test_node_type_mismatch_rejected() -> None:
