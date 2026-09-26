@@ -70,6 +70,7 @@ class ConventionModule(Protocol):
 
 
 if TYPE_CHECKING:
+    from . import cs as _cs
     from . import license as _license
     from . import stac as _stac
     from . import uom as _uom
@@ -90,3 +91,4 @@ if TYPE_CHECKING:
     _check_license: ConventionModule = _license
     _check_uom: ConventionModule = _uom
     _check_stac: ConventionModule = _stac
+    _check_cs: ConventionModule = _cs

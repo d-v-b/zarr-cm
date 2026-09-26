@@ -107,6 +107,14 @@ _TYPED_DICTS = [
     (zarr_cm, "StacAttrs"),
     (zarr_cm, "StacConventionAttrs"),
     (zarr_cm, "StacLink"),
+    (zarr_cm, "CsAttrs"),
+    (zarr_cm, "CsConventionAttrs"),
+    (zarr_cm, "CsCoordinateSet"),
+    (zarr_cm, "CsCrs"),
+    (zarr_cm, "CsAxis"),
+    (zarr_cm, "CsCoordinates"),
+    (zarr_cm, "CsValues"),
+    (zarr_cm, "CsRef"),
 ]
 
 

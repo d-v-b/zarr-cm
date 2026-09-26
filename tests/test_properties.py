@@ -22,6 +22,7 @@ from referencing.jsonschema import DRAFT7
 from strategies import (
     REVISIONS,
     Revision,
+    cs_external_schemas,
     foreign_attrs,
     foreign_declarations,
     revision_pairs,
@@ -46,8 +47,10 @@ settings.load_profile("zarr_cm")
 # one match, so the stac pair can't both be accept-anything (`{}`) or every
 # instance would match both and `oneOf` would always fail. Stub each pair's
 # v1.0.0 member as accept-anything and its v1.1.0 member as reject-everything:
-# which one "wins" is arbitrary, only that exactly one does.
+# which one "wins" is arbitrary, only that exactly one does. The cs schema
+# `$ref`s other conventions' definitions; see `strategies.cs_external_schemas`.
 _STUBS: list[tuple[str, dict[str, Any]]] = [
+    *cs_external_schemas(),
     ("https://proj.org/schemas/v0.7/projjson.schema.json", {}),
     ("https://schemas.stacspec.org/v1.0.0/item-spec/json-schema/item.json", {}),
     (
@@ -338,7 +341,7 @@ def test_upstream_schema_id_is_a_recognized_url(rev: Revision) -> None:
         pytest.skip("upstream schema declares no $id")
     assert schema_id in rev.module.RECOGNIZED_SCHEMA_URLS
     if rev.label is None:
-        # Unrevisioned conventions (license, uom, stac) expose no `revision=`
+        # Unrevisioned conventions (license, uom, stac, cs) expose no `revision=`
         # kwarg, so there is no public label to compare against -- just
         # confirm the schema's own $id is one this module recognizes as itself.
         assert schema_id in rev.package.REVISION_BY_SCHEMA_URL

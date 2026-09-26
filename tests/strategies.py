@@ -21,8 +21,8 @@ from typing import TYPE_CHECKING, Any, NamedTuple
 from hypothesis import strategies as st
 
 import zarr_cm
+from zarr_cm import cs, multiscales, proj, spatial, stac, uom
 from zarr_cm import license as license_
-from zarr_cm import multiscales, proj, spatial, stac, uom
 
 if TYPE_CHECKING:
     from types import ModuleType
@@ -163,6 +163,225 @@ STAC_KWARGS: st.SearchStrategy[Kwargs] = st.sampled_from(
     )
 )
 
+# --- cs ----------------------------------------------------------------------
+
+_POINTER = st.lists(st.from_regex(r"[A-Za-z0-9_]*", fullmatch=True), max_size=3).map(
+    lambda segments: "".join(f"/{s}" for s in segments)
+)
+_CS_REF = st.fixed_dictionaries(
+    {"node": text}, optional={"uri": text, "attribute": _POINTER}
+)
+_CS_EXTERNAL = st.fixed_dictionaries({"ref": _CS_REF})
+_CS_REGULAR = st.tuples(numbers, numbers.filter(lambda x: x != 0)).map(list)
+_CS_VALUES = st.one_of(
+    st.fixed_dictionaries({"regular": _CS_REGULAR}),
+    st.fixed_dictionaries({"external": _CS_EXTERNAL}),
+    st.fixed_dictionaries({"explicit": st.lists(json_values, max_size=3)}),
+)
+_CS_BOUNDARIES = st.one_of(
+    st.fixed_dictionaries({"regular": st.lists(numbers, min_size=2, max_size=2)}),
+    st.fixed_dictionaries({"external": _CS_EXTERNAL}),
+)
+_CS_TIME = st.fixed_dictionaries(
+    {"unit": text, "epoch": text}, optional={"calendar": text}
+)
+_CS_UNIT = text | st.fixed_dictionaries(
+    {"ucum": st.fixed_dictionaries({}, optional={"unit": text, "version": text})},
+    optional={"description": text},
+)
+_CS_PARAMETRIC = st.fixed_dictionaries(
+    {
+        "formula": text,
+        "terms": st.dictionaries(text, _CS_VALUES, min_size=1, max_size=2),
+    }
+)
+_CS_PROJ = st.fixed_dictionaries({"proj:code": st.just("EPSG:4326")})
+_CS_GEOLOCATION_ARRAYS = st.fixed_dictionaries(
+    {"x": _CS_REF, "y": _CS_REF}, optional={"crs": _CS_PROJ}
+)
+_CS_GEOLOCATION = st.fixed_dictionaries(
+    {}, optional={"geodetic": _CS_GEOLOCATION_ARRAYS}
+).flatmap(
+    lambda g: st.just(g)
+    if g
+    else st.fixed_dictionaries({"planar": _CS_GEOLOCATION_ARRAYS})
+)
+
+
+@st.composite
+def _cs_coordinates(draw: st.DrawFn, name: str | None) -> dict[str, Any]:
+    coordinates: dict[str, Any] = {"values": draw(_CS_VALUES)}
+    if name is not None:
+        coordinates["name"] = name
+    kind = draw(st.sampled_from(["unit", "time", None]))
+    if kind == "unit":
+        coordinates["unit"] = draw(_CS_UNIT)
+    elif kind == "time":
+        coordinates["time"] = draw(_CS_TIME)
+    optional_fields = {
+        "direction": text,
+        "boundaries": _CS_BOUNDARIES,
+        "parametric": _CS_PARAMETRIC,
+        "attributes": st.dictionaries(text, json_values, max_size=2),
+    }
+    for key, strategy in optional_fields.items():
+        if draw(st.booleans()):
+            coordinates[key] = draw(strategy)
+    return coordinates
+
+
+@st.composite
+def _cs_axis(draw: st.DrawFn, abbreviation: str | None) -> dict[str, Any]:
+    axis: dict[str, Any] = {}
+    if abbreviation is not None:
+        axis["abbreviation"] = abbreviation
+    if draw(st.booleans()):  # absent coordinates: an ordinal axis
+        # coordinate sets of one axis must have distinct names, if named
+        axis["coordinates"] = [
+            draw(_cs_coordinates(draw(st.sampled_from([f"set{i}", None]))))
+            for i in range(draw(st.integers(1, 2)))
+        ]
+    return axis
+
+
+@st.composite
+def _cs_crs(draw: st.DrawFn, abbreviations: list[str]) -> dict[str, Any]:
+    """A CRS object; its axes take (and consume) *abbreviations* as they go."""
+    names = draw(st.lists(text, min_size=1, max_size=3, unique=True))
+    axes = {}
+    for name in names:
+        abbreviation = (
+            abbreviations.pop() if abbreviations and draw(st.booleans()) else None
+        )
+        axes[name] = draw(_cs_axis(abbreviation))
+    crs: dict[str, Any] = {
+        "type": draw(
+            st.sampled_from(["compound", "planar", "vertical", "temporal", "undefined"])
+        ),
+        "axes": axes,
+    }
+    optional_fields = {
+        "name": text,
+        "description": text,
+        "id": _CS_PROJ,
+        "geolocation": _CS_GEOLOCATION,
+    }
+    for key, strategy in optional_fields.items():
+        if draw(st.booleans()):
+            crs[key] = draw(strategy)
+    return crs
+
+
+def _abbreviations() -> st.SearchStrategy[list[str]]:
+    return st.permutations(["X", "Y", "Z", "T"]).map(list)
+
+
+@st.composite
+def _cs_coordinate_set(draw: st.DrawFn) -> dict[str, Any]:
+    # abbreviations are unique across the inline CRSs of one coordinate set
+    abbreviations = draw(_abbreviations())
+    items = [
+        draw(_CS_REF) if draw(st.booleans()) else draw(_cs_crs(abbreviations))
+        for _ in range(draw(st.integers(0, 3)))
+    ]
+    cs: dict[str, Any] = {"crs": items}
+    optional_fields = {
+        "name": text,
+        "id": _CS_PROJ,
+        "attributes": st.dictionaries(text, json_values, max_size=2),
+    }
+    for key, strategy in optional_fields.items():
+        if draw(st.booleans()):
+            cs[key] = draw(strategy)
+    return cs
+
+
+@st.composite
+def _cs_group_crs(draw: st.DrawFn) -> dict[str, Any]:
+    # ...but each of a group's named CRSs stands alone
+    names = draw(st.lists(text, min_size=1, max_size=2, unique=True))
+    return {name: draw(_cs_crs(draw(_abbreviations()))) for name in names}
+
+
+# Generated for a group: arrays additionally need `dimension_names` with an axis
+# for each, which a bare attributes dict cannot supply. A group's `cs` is
+# ignored by the schema and checked like any other by `validate`.
+CS_KWARGS: st.SearchStrategy[Kwargs] = st.fixed_dictionaries(
+    {"crs": _cs_group_crs(), "cs": optional(_cs_coordinate_set())}
+).map(drop_none)
+
+# The cs schema `$ref`s definitions of four other conventions by URL. proj's and
+# uom's are the schemas vendored for those conventions; ref's and geolocation's
+# are copied here, since zarr-cm does not model those conventions.
+_CS_REF_SCHEMA: dict[str, Any] = {
+    "$defs": {
+        "ref": {
+            "type": "object",
+            "properties": {
+                "uri": {"type": "string"},
+                "node": {"type": "string"},
+                "attribute": {
+                    "type": "string",
+                    "pattern": "^(|(/([^~/]|~[01])*)*)$",
+                },
+            },
+            "required": ["node"],
+            "additionalProperties": False,
+        }
+    }
+}
+_CS_GEOLOCATION_SCHEMA: dict[str, Any] = {
+    "$defs": {
+        "geolocation": {
+            "type": "object",
+            "properties": {
+                "geodetic": {"$ref": "#/$defs/arrays"},
+                "planar": {"$ref": "#/$defs/arrays"},
+            },
+            "anyOf": [{"required": ["geodetic"]}, {"required": ["planar"]}],
+            "additionalProperties": False,
+        },
+        "arrays": {
+            "type": "object",
+            "properties": {
+                "x": {
+                    "$ref": "https://raw.githubusercontent.com/R-CF/zarr_convention_ref/main/schema.json#/$defs/ref"
+                },
+                "y": {
+                    "$ref": "https://raw.githubusercontent.com/R-CF/zarr_convention_ref/main/schema.json#/$defs/ref"
+                },
+                "crs": {
+                    "$ref": "https://raw.githubusercontent.com/zarr-conventions/geo-proj/main/schema.json#/$defs/projAttributes"
+                },
+            },
+            "required": ["x", "y"],
+            "additionalProperties": False,
+        },
+    }
+}
+
+
+def cs_external_schemas() -> list[tuple[str, dict[str, Any]]]:
+    """The documents the cs schema `$ref`s, by the URL it refers to them by."""
+    return [
+        (
+            "https://raw.githubusercontent.com/R-CF/zarr_convention_ref/main/schema.json",
+            _CS_REF_SCHEMA,
+        ),
+        (
+            "https://raw.githubusercontent.com/R-CF/zarr_convention_geolocation/main/schema.json",
+            _CS_GEOLOCATION_SCHEMA,
+        ),
+        (
+            "https://raw.githubusercontent.com/zarr-conventions/geo-proj/main/schema.json",
+            _schema("proj-r3.json"),
+        ),
+        (
+            "https://raw.githubusercontent.com/clbarnes/zarr-convention-uom/refs/tags/v1/schema.json",
+            _schema("uom.json"),
+        ),
+    ]
+
 
 # --- the registry ------------------------------------------------------------
 
@@ -240,6 +459,7 @@ REVISIONS: tuple[Revision, ...] = (
     ),
     Revision("uom", None, uom, uom, _schema("uom.json"), "array", UOM_KWARGS),
     Revision("stac", None, stac, stac, _schema("stac.json"), "group", STAC_KWARGS),
+    Revision("cs", None, cs, cs, _schema("cs.json"), "group", CS_KWARGS),
 )
 
 REVISIONED: tuple[Revision, ...] = tuple(r for r in REVISIONS if r.label is not None)

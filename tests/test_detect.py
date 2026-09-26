@@ -3,8 +3,8 @@ from __future__ import annotations
 import pytest
 
 import zarr_cm
+from zarr_cm import cs, multiscales, proj, spatial, stac, uom
 from zarr_cm import license as license_
-from zarr_cm import multiscales, proj, spatial, stac, uom
 
 
 def test_spatial_detect_known_revisions() -> None:
@@ -126,3 +126,28 @@ def test_stac_detect_unknown_url_returns_none() -> None:
 def test_stac_detect_absent_raises() -> None:
     with pytest.raises(ValueError, match="stac"):
         stac.detect({"foo": "bar"})
+
+
+def test_cs_detect_present_returns_main() -> None:
+    doc = cs.insert({}, cs.create(cs={"crs": []}))
+    assert cs.detect(doc) == "main"
+
+
+def test_cs_detect_alias_url_returns_main() -> None:
+    (alias,) = cs.ALIAS_SCHEMA_URLS
+    doc = {"cs": {"name": "set"}, "zarr_conventions": [{"schema_url": alias}]}
+    assert cs.detect(doc) == "main"
+
+
+def test_cs_detect_unknown_url_returns_none() -> None:
+    other = "https://example/other.json"
+    doc = {
+        "cs": {"name": "set"},
+        "zarr_conventions": [{"uuid": cs.UUID, "schema_url": other}],
+    }
+    assert cs.detect(doc) is None
+
+
+def test_cs_detect_absent_raises() -> None:
+    with pytest.raises(ValueError, match="cs"):
+        cs.detect({"foo": "bar"})

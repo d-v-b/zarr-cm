@@ -10,6 +10,24 @@ carries the full pull-request list.
 <!-- Keep the newest version at the top. Sections: Highlights, Added, Changed,
 Fixed, Breaking, Internal — include only the ones with content. -->
 
+## Unreleased
+
+### Added
+
+- `zarr_cm.cs`: the
+  [coordinate set convention](https://github.com/R-CF/zarr_conventions_cs)
+  (single revision `"main"`; upstream has no tags), which attaches axes and
+  coordinate values to an array's dimensions. Arrays carry a `cs` object whose
+  `crs` list holds CRS objects inline or references to CRS objects that a group
+  defines under `crs`. Validation follows the upstream schema, plus the spec
+  rules a single document can show to be broken (axis abbreviations, non-zero
+  regular increments, `dimension_names` set and covered by axes); the `ref`,
+  `proj`, `uom` and `geolocation` objects it embeds are checked too. Ships the
+  full module surface, participates in every multi-convention function (`"cs"`
+  is in `CONVENTION_NAMES`), and exports `CsAttrs`, `CsConventionAttrs`,
+  `CsCoordinateSet`, `CsCrs`, `CsAxis`, `CsCoordinates`, `CsValues` and `CsRef`
+  at the top level.
+
 ## 0.5.0 — 2026-09-25
 
 ### Highlights

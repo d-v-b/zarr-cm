@@ -53,3 +53,7 @@
 ## stac
 
 ::: zarr_cm.stac
+
+## cs
+
+::: zarr_cm.cs

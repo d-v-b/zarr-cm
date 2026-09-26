@@ -11,14 +11,15 @@ pip install zarr-cm
 
 ## Supported conventions
 
-| Convention                                                     | Module                                   | Description                             |
-| -------------------------------------------------------------- | ---------------------------------------- | --------------------------------------- |
-| [proj](https://github.com/zarr-conventions/proj)               | `zarr_cm.proj` (also `zarr_cm.geo_proj`) | Coordinate reference system information |
-| [spatial](https://github.com/zarr-conventions/spatial)         | `zarr_cm.spatial`                        | Spatial coordinate metadata             |
-| [multiscales](https://github.com/zarr-conventions/multiscales) | `zarr_cm.multiscales`                    | Multiscale pyramid layout               |
-| [license](https://github.com/clbarnes/zarr-convention-license) | `zarr_cm.license`                        | License specifiers                      |
-| [uom](https://github.com/clbarnes/zarr-convention-uom)         | `zarr_cm.uom`                            | Units of measurement                    |
-| [stac](https://github.com/zarr-conventions/stac)               | `zarr_cm.stac`                           | STAC metadata for a Zarr group          |
+| Convention                                                     | Module                                   | Description                              |
+| -------------------------------------------------------------- | ---------------------------------------- | ---------------------------------------- |
+| [proj](https://github.com/zarr-conventions/proj)               | `zarr_cm.proj` (also `zarr_cm.geo_proj`) | Coordinate reference system information  |
+| [spatial](https://github.com/zarr-conventions/spatial)         | `zarr_cm.spatial`                        | Spatial coordinate metadata              |
+| [multiscales](https://github.com/zarr-conventions/multiscales) | `zarr_cm.multiscales`                    | Multiscale pyramid layout                |
+| [license](https://github.com/clbarnes/zarr-convention-license) | `zarr_cm.license`                        | License specifiers                       |
+| [uom](https://github.com/clbarnes/zarr-convention-uom)         | `zarr_cm.uom`                            | Units of measurement                     |
+| [stac](https://github.com/zarr-conventions/stac)               | `zarr_cm.stac`                           | STAC metadata for a Zarr group           |
+| [cs](https://github.com/R-CF/zarr_conventions_cs)              | `zarr_cm.cs`                             | Coordinate sets for n-dimensional arrays |
 
 ## Usage
 
