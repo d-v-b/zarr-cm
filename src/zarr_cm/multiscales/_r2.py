@@ -1,7 +1,8 @@
 """multiscales convention, revision r2 (v0.1).
 
 Snapshot of upstream at commit 9b78efa75fef0fed302d9cf880037c569354d860.
-Identical in shape to r1; pins the schema/spec URLs to the v0.1 release.
+Pins the schema/spec URLs to the v0.1 release. This is the only revision the
+package ships; see the package docstring for why there is no r1.
 """
 
 from __future__ import annotations
@@ -126,7 +127,7 @@ _PATH_PATTERN: Final = re.compile(r"^(?!/)(?!.*(\.\.))([^/]+(/[^/]+)*)$")
 
 def create(
     *,
-    layout: tuple[LayoutObject, ...],
+    layout: list[LayoutObject] | tuple[LayoutObject, ...],
     resampling_method: str | None = None,
 ) -> MultiscalesAttrs:
     """Create a `MultiscalesAttrs` dict from keyword arguments."""
@@ -139,7 +140,7 @@ def create(
 
 def create_convention_attrs(
     *,
-    layout: tuple[LayoutObject, ...],
+    layout: list[LayoutObject] | tuple[LayoutObject, ...],
     resampling_method: str | None = None,
 ) -> MultiscalesConventionAttrs:
     """Create a stand-alone attributes dict carrying multiscales and nothing else.
@@ -192,8 +193,10 @@ def extract(
 def validate(data: Mapping[str, JSONValue]) -> MultiscalesAttrs:
     """Validate multiscales convention data.
 
-    `layout` must have at least one item, and each layout entry
-    that has `derived_from` must also have `transform`.
+    `layout` must have at least one item. Each layout entry needs an
+    `asset`; `asset` and `derived_from` must be relative paths (no leading
+    `/`, no empty segments, no `..`), and an entry that has `derived_from`
+    must also have `transform`.
     """
     if "layout" not in data:
         msg = "'layout' is required"
@@ -213,16 +216,18 @@ def validate(data: Mapping[str, JSONValue]) -> MultiscalesAttrs:
             msg = f"layout[{i}] must be an object"
             raise TypeError(msg)
         entry_object = validate_json_object(entry)
-        asset = entry_object.get("asset")
-        if not isinstance(asset, str) or not _PATH_PATTERN.match(asset):
-            msg = f"layout[{i}].asset must be a valid relative path"
+        if "asset" not in entry_object:
+            msg = f"layout[{i}].asset is required"
             raise ValueError(msg)
-        if "derived_from" in entry_object:
-            derived_from = entry_object["derived_from"]
-            if not isinstance(derived_from, str) or not _PATH_PATTERN.match(
-                derived_from
-            ):
-                msg = f"layout[{i}].derived_from must be a valid relative path"
+        for key in ("asset", "derived_from"):
+            if key not in entry_object:
+                continue
+            path = entry_object[key]
+            if not isinstance(path, str):
+                msg = f"layout[{i}].{key} must be a string"
+                raise TypeError(msg)
+            if not _PATH_PATTERN.match(path):
+                msg = f"layout[{i}].{key} must be a valid relative path, got {path!r}"
                 raise ValueError(msg)
         if "derived_from" in entry_object and "transform" not in entry_object:
             msg = f"layout[{i}] has 'derived_from' but is missing 'transform'"
