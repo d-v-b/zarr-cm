@@ -47,6 +47,12 @@ TRACKED: dict[str, dict[str, str]] = {
         "upstream": "https://raw.githubusercontent.com/zarr-conventions/stac/main/schema.json",
         "vendored": ".github/upstream-schemas/stac/d67cd285b930f3297b02563af5270e4a9b84e38e.json",
     },
+    # cs has no tags, and its README's schema_url names a repository
+    # (`zarr_convention_cs`) that does not resolve, so track the one that does.
+    "cs": {
+        "upstream": "https://raw.githubusercontent.com/R-CF/zarr_conventions_cs/main/schema.json",
+        "vendored": ".github/upstream-schemas/cs/33df41a6164e5af1761b32c6686b342bfe4beb3c.json",
+    },
 }
 
 

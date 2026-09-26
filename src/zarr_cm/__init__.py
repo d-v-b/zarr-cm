@@ -7,16 +7,16 @@ zarr-cm: Python implementation of Zarr Conventions Metadata
 from __future__ import annotations
 
 import typing
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from typing import Final, Literal, NamedTuple, NotRequired
 
 from typing_extensions import TypedDict
 
 if typing.TYPE_CHECKING:
-    from collections.abc import Iterable, Mapping
+    from collections.abc import Iterable
 
+from . import cs, multiscales, proj, spatial, stac, uom
 from . import license as license_
-from . import multiscales, proj, spatial, stac, uom
 from ._core import (
     ArrayMetadata,
     ArrayMetadataInput,
@@ -34,6 +34,16 @@ from ._core import (
     validate_json_object,
 )
 from ._version import version as __version__
+from .cs import (
+    CsAttrs,
+    CsAxis,
+    CsConventionAttrs,
+    CsCoordinates,
+    CsCoordinateSet,
+    CsCrs,
+    CsRef,
+    CsValues,
+)
 from .geo_proj import (
     GeoProjAttrs,
     GeoProjAttrsR2,
@@ -65,7 +75,7 @@ from .stac import StacAttrs, StacConventionAttrs, StacLink
 from .uom import UCUM, UomAttrs, UomConventionAttrs
 
 ConventionName = Literal[
-    "proj", "spatial", "multiscales", "license", "uom", "stac", "geo-proj"
+    "proj", "spatial", "multiscales", "license", "uom", "stac", "cs", "geo-proj"
 ]
 """Display names accepted by the multi-convention functions.
 
@@ -75,7 +85,7 @@ everywhere a name is taken as input, but functions that *report* names
 """
 
 CanonicalConventionName = Literal[
-    "proj", "spatial", "multiscales", "license", "uom", "stac"
+    "proj", "spatial", "multiscales", "license", "uom", "stac", "cs"
 ]
 """The canonical subset of `ConventionName` (no aliases)."""
 
@@ -166,6 +176,16 @@ _REGISTRY: Final[dict[CanonicalConventionName, _ConventionModule]] = {
         stac.extract,
         stac.detect,
     ),
+    "cs": _ConventionModule(
+        cs.UUID,
+        cs.CMO,
+        cs.CONVENTION_KEYS,
+        cs.REVISION_BY_SCHEMA_URL,
+        cs.validate,
+        cs.insert,
+        cs.extract,
+        cs.detect,
+    ),
 }
 
 CONVENTION_ALIASES: Final[dict[str, CanonicalConventionName]] = {"geo-proj": "proj"}
@@ -181,6 +201,7 @@ ALL_CONVENTION_KEYS: Final = frozenset(
     | license_.CONVENTION_KEYS
     | uom.CONVENTION_KEYS
     | stac.CONVENTION_KEYS
+    | cs.CONVENTION_KEYS
 )
 
 MultiConventionAttrs = TypedDict(
@@ -209,6 +230,9 @@ MultiConventionAttrs = TypedDict(
         "stac:collection": NotRequired[JSONDict],
         "stac:key": NotRequired[str],
         "stac:link": NotRequired[StacLink],
+        # cs
+        "cs": NotRequired[CsCoordinateSet],
+        "crs": NotRequired[Mapping[str, CsCrs]],
     },
     extra_items=JSONValue,
 )
@@ -548,6 +572,14 @@ __all__ = [
     "ConventionAttrs",
     "ConventionMetadataObject",
     "ConventionName",
+    "CsAttrs",
+    "CsAxis",
+    "CsConventionAttrs",
+    "CsCoordinateSet",
+    "CsCoordinates",
+    "CsCrs",
+    "CsRef",
+    "CsValues",
     "GeoProjAttrs",
     "GeoProjAttrsR2",
     "GeoProjAttrsR3",

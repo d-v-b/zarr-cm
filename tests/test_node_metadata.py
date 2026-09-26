@@ -11,8 +11,8 @@ from typing import Any
 
 import pytest
 
+from zarr_cm import cs, multiscales, proj, spatial, stac, uom
 from zarr_cm import license as license_
-from zarr_cm import multiscales, proj, spatial, stac, uom
 from zarr_cm._core import validate_json_object
 
 # The v3 array fields below zarr-cm never inspects; a realistic stub keeps the
@@ -53,6 +53,17 @@ def _stac_attrs() -> Any:
     return stac.create_convention_attrs(key="stac.json")
 
 
+_CS_CRS: Any = {
+    "type": "planar",
+    "axes": {"y": {"abbreviation": "Y"}, "x": {"abbreviation": "X"}},
+}
+
+
+def _cs_array_node() -> Any:
+    node = array_node(cs.create_convention_attrs(cs={"crs": [_CS_CRS]}))
+    return {**node, "dimension_names": ["y", "x"]}
+
+
 def test_valid_documents_pass() -> None:
     """Reasonable node/convention combinations validate, at every layer."""
     cases: list[tuple[Any, Any]] = [
@@ -70,6 +81,9 @@ def test_valid_documents_pass() -> None:
         # multiscales and stac are group-only
         (multiscales, group_node(_multiscales_attrs())),
         (stac, group_node(_stac_attrs())),
+        # cs: a coordinate set on an array, named CRS objects on a group
+        (cs, _cs_array_node()),
+        (cs, group_node(cs.create_convention_attrs(crs={"grid": _CS_CRS}))),
     ]
     for module, node in cases:
         expected = {**node, "attributes": validate_json_object(node["attributes"])}
@@ -112,6 +126,18 @@ def test_uom_rejects_group_nodes() -> None:
         uom.validate_group_metadata(node)
     with pytest.raises(ValueError, match="does not apply to group nodes"):
         uom.validate_node_metadata(node)
+
+
+def test_cs_array_requires_cs() -> None:
+    node = array_node(cs.create_convention_attrs(crs={"grid": _CS_CRS}))
+    with pytest.raises(ValueError, match="'cs' is required on array nodes"):
+        cs.validate_node_metadata(node)
+
+
+def test_cs_group_requires_crs() -> None:
+    node = group_node(cs.create_convention_attrs(cs={"crs": [_CS_CRS]}))
+    with pytest.raises(ValueError, match="'crs' is required on group nodes"):
+        cs.validate_node_metadata(node)
 
 
 def test_node_type_mismatch_rejected() -> None:
