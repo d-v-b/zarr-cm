@@ -53,3 +53,7 @@
 ## stac
 
 ::: zarr_cm.stac
+
+## coords
+
+::: zarr_cm.coords

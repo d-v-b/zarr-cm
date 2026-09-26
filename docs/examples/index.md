@@ -24,3 +24,5 @@ with a README and its source, embedded in the pages below.
 - [uom](uom.md) — units of measurement as UCUM codes (single revision)
 - [stac](stac.md) — STAC Item/Collection metadata on a group (single revision,
   group-only)
+- [coords](coords.md) — index-to-coordinate mapping, checked against the array's
+  `dimension_names` (single revision)
