@@ -130,9 +130,20 @@ MULTISCALES_KWARGS: st.SearchStrategy[Kwargs] = st.fixed_dictionaries(
 
 # --- license / uom -----------------------------------------------------------
 
+# `file` and `path` are node-relative: the spec forbids a leading or trailing `/`.
+relative_path = text.filter(lambda s: not s.startswith("/") and not s.endswith("/"))
+LICENSE_FIELDS: dict[str, st.SearchStrategy[str]] = {
+    "spdx": text,
+    "url": text,
+    "text": text,
+    "file": relative_path,
+    "path": relative_path,
+}
 LICENSE_KWARGS: st.SearchStrategy[Kwargs] = st.sets(
-    st.sampled_from(["spdx", "url", "text", "file", "path"]), min_size=1
-).flatmap(lambda names: st.fixed_dictionaries(dict.fromkeys(names, text)))
+    st.sampled_from(list(LICENSE_FIELDS)), min_size=1
+).flatmap(
+    lambda names: st.fixed_dictionaries({name: LICENSE_FIELDS[name] for name in names})
+)
 
 UOM_KWARGS: st.SearchStrategy[Kwargs] = st.fixed_dictionaries(
     {

@@ -10,6 +10,15 @@ carries the full pull-request list.
 <!-- Keep the newest version at the top. Sections: Highlights, Added, Changed,
 Fixed, Breaking, Internal — include only the ones with content. -->
 
+## Unreleased
+
+### Fixed
+
+- `license.validate` (and so `create`, `create_convention_attrs` and the node
+  validators) now rejects a `file` or `path` that starts or ends with `/`. The
+  spec defines both as paths relative to the node and says they MUST NOT start
+  or end with `/`.
+
 ## 0.5.0 — 2026-09-25
 
 ### Highlights

@@ -143,5 +143,25 @@ def test_create_file_branch() -> None:
 
 
 def test_create_path_branch() -> None:
-    result = license.create(path="/licenses/mit")
-    assert result == {"path": "/licenses/mit"}
+    result = license.create(path="licenses/mit")
+    assert result == {"path": "licenses/mit"}
+
+
+@pytest.mark.parametrize("key", ["file", "path"])
+@pytest.mark.parametrize("value", ["LICENSE", "./LICENSE", "../LICENSE", ".", "a/b"])
+def test_validate_relative_reference(key: str, value: str) -> None:
+    # `file` and `path` are node-relative POSIX paths; `.`/`..` segments are allowed.
+    assert license.validate({key: value}) == {key: value}
+
+
+@pytest.mark.parametrize("key", ["file", "path"])
+def test_validate_reference_leading_slash(key: str) -> None:
+    # The spec: "The path MUST NOT start or end with `/`" (applies to `path` too).
+    with pytest.raises(ValueError, match="must not start or end with '/'"):
+        license.validate({key: "/licenses/mit"})
+
+
+@pytest.mark.parametrize("key", ["file", "path"])
+def test_validate_reference_trailing_slash(key: str) -> None:
+    with pytest.raises(ValueError, match="must not start or end with '/'"):
+        license.validate({key: "licenses/mit/"})
