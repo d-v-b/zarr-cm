@@ -47,6 +47,10 @@ TRACKED: dict[str, dict[str, str]] = {
         "upstream": "https://raw.githubusercontent.com/zarr-conventions/stac/main/schema.json",
         "vendored": ".github/upstream-schemas/stac/d67cd285b930f3297b02563af5270e4a9b84e38e.json",
     },
+    "nz": {
+        "upstream": "https://raw.githubusercontent.com/zarr-conventions/nz/main/schema.json",
+        "vendored": ".github/upstream-schemas/nz/7c923cf7b5467c1a873ca93c9223bf08d60efc07.json",
+    },
 }
 
 

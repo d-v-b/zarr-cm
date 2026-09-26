@@ -4,7 +4,7 @@ import pytest
 
 import zarr_cm
 from zarr_cm import license as license_
-from zarr_cm import multiscales, proj, spatial, stac, uom
+from zarr_cm import multiscales, nz, proj, spatial, stac, uom
 
 
 def test_spatial_detect_known_revisions() -> None:
@@ -126,3 +126,26 @@ def test_stac_detect_unknown_url_returns_none() -> None:
 def test_stac_detect_absent_raises() -> None:
     with pytest.raises(ValueError, match="stac"):
         stac.detect({"foo": "bar"})
+
+
+def test_nz_detect_present_returns_v1() -> None:
+    for url in nz.RECOGNIZED_SCHEMA_URLS:
+        doc = {
+            "conventions": "NZ-1.0",
+            "zarr_conventions": [{"uuid": nz.UUID, "schema_url": url}],
+        }
+        assert nz.detect(doc) == "v1"
+
+
+def test_nz_detect_unknown_url_returns_none() -> None:
+    other = "https://example/other.json"
+    doc = {
+        "conventions": "NZ-1.0",
+        "zarr_conventions": [{"uuid": nz.UUID, "schema_url": other}],
+    }
+    assert nz.detect(doc) is None
+
+
+def test_nz_detect_absent_raises() -> None:
+    with pytest.raises(ValueError, match="nz"):
+        nz.detect({"conventions": "NZ-1.0"})

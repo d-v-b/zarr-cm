@@ -16,7 +16,7 @@ if typing.TYPE_CHECKING:
     from collections.abc import Iterable, Mapping
 
 from . import license as license_
-from . import multiscales, proj, spatial, stac, uom
+from . import multiscales, nz, proj, spatial, stac, uom
 from ._core import (
     ArrayMetadata,
     ArrayMetadataInput,
@@ -53,6 +53,7 @@ from .multiscales import (
     Transform,
     TransformR2,
 )
+from .nz import NzAttrs, NzConventionAttrs
 from .spatial import (
     SpatialAttrs,
     SpatialAttrsR2,
@@ -65,7 +66,7 @@ from .stac import StacAttrs, StacConventionAttrs, StacLink
 from .uom import UCUM, UomAttrs, UomConventionAttrs
 
 ConventionName = Literal[
-    "proj", "spatial", "multiscales", "license", "uom", "stac", "geo-proj"
+    "proj", "spatial", "multiscales", "license", "uom", "stac", "nz", "geo-proj"
 ]
 """Display names accepted by the multi-convention functions.
 
@@ -75,7 +76,7 @@ everywhere a name is taken as input, but functions that *report* names
 """
 
 CanonicalConventionName = Literal[
-    "proj", "spatial", "multiscales", "license", "uom", "stac"
+    "proj", "spatial", "multiscales", "license", "uom", "stac", "nz"
 ]
 """The canonical subset of `ConventionName` (no aliases)."""
 
@@ -166,6 +167,16 @@ _REGISTRY: Final[dict[CanonicalConventionName, _ConventionModule]] = {
         stac.extract,
         stac.detect,
     ),
+    "nz": _ConventionModule(
+        nz.UUID,
+        nz.CMO,
+        nz.CONVENTION_KEYS,
+        nz.REVISION_BY_SCHEMA_URL,
+        nz.validate,
+        nz.insert,
+        nz.extract,
+        nz.detect,
+    ),
 }
 
 CONVENTION_ALIASES: Final[dict[str, CanonicalConventionName]] = {"geo-proj": "proj"}
@@ -181,6 +192,7 @@ ALL_CONVENTION_KEYS: Final = frozenset(
     | license_.CONVENTION_KEYS
     | uom.CONVENTION_KEYS
     | stac.CONVENTION_KEYS
+    | nz.CONVENTION_KEYS
 )
 
 MultiConventionAttrs = TypedDict(
@@ -209,6 +221,9 @@ MultiConventionAttrs = TypedDict(
         "stac:collection": NotRequired[JSONDict],
         "stac:key": NotRequired[str],
         "stac:link": NotRequired[StacLink],
+        # nz
+        "conventions": NotRequired[str],
+        "_FillValue": NotRequired[JSONValue],
     },
     extra_items=JSONValue,
 )
@@ -569,6 +584,8 @@ __all__ = [
     "MultiscalesConventionAttrs",
     "MultiscalesConventionAttrsR2",
     "NodeMetadataInput",
+    "NzAttrs",
+    "NzConventionAttrs",
     "SpatialAttrs",
     "SpatialAttrsR2",
     "SpatialAttrsR3",

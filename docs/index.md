@@ -19,6 +19,7 @@ pip install zarr-cm
 | [license](https://github.com/clbarnes/zarr-convention-license) | `zarr_cm.license`                        | License specifiers                      |
 | [uom](https://github.com/clbarnes/zarr-convention-uom)         | `zarr_cm.uom`                            | Units of measurement                    |
 | [stac](https://github.com/zarr-conventions/stac)               | `zarr_cm.stac`                           | STAC metadata for a Zarr group          |
+| [nz](https://github.com/zarr-conventions/nz)                   | `zarr_cm.nz`                             | NetCDF-style structure (NZ-1.0)         |
 
 ## Usage
 
