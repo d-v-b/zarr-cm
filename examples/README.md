@@ -33,6 +33,8 @@ examples/
 - [uom](uom/README.md) -- units of measurement as UCUM codes (single revision)
 - [stac](stac/README.md) -- STAC Item/Collection metadata on a group (single
   revision, group-only)
+- [dggs](dggs/README.md) -- discrete global grid system (HEALPix) metadata
+  (single revision)
 
 ## Adding New Examples
 

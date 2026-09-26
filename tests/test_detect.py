@@ -3,8 +3,8 @@ from __future__ import annotations
 import pytest
 
 import zarr_cm
+from zarr_cm import dggs, multiscales, proj, spatial, stac, uom
 from zarr_cm import license as license_
-from zarr_cm import multiscales, proj, spatial, stac, uom
 
 
 def test_spatial_detect_known_revisions() -> None:
@@ -126,3 +126,24 @@ def test_stac_detect_unknown_url_returns_none() -> None:
 def test_stac_detect_absent_raises() -> None:
     with pytest.raises(ValueError, match="stac"):
         stac.detect({"foo": "bar"})
+
+
+def test_dggs_detect_present_returns_v1() -> None:
+    doc = dggs.insert(
+        {}, dggs.create(name="h3", refinement_level=5, spatial_dimension="cells")
+    )
+    assert dggs.detect(doc) == "v1"
+
+
+def test_dggs_detect_unknown_url_returns_none() -> None:
+    other = "https://example/other.json"
+    doc = {
+        "dggs": {"name": "h3", "refinement_level": 5, "spatial_dimension": "cells"},
+        "zarr_conventions": [{"uuid": dggs.UUID, "schema_url": other}],
+    }
+    assert dggs.detect(doc) is None
+
+
+def test_dggs_detect_absent_raises() -> None:
+    with pytest.raises(ValueError, match="dggs"):
+        dggs.detect({"foo": "bar"})

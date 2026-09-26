@@ -53,3 +53,7 @@
 ## stac
 
 ::: zarr_cm.stac
+
+## dggs
+
+::: zarr_cm.dggs

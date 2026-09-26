@@ -11,8 +11,8 @@ from typing import Any
 
 import pytest
 
+from zarr_cm import dggs, multiscales, proj, spatial, stac, uom
 from zarr_cm import license as license_
-from zarr_cm import multiscales, proj, spatial, stac, uom
 from zarr_cm._core import validate_json_object
 
 # The v3 array fields below zarr-cm never inspects; a realistic stub keeps the
@@ -53,6 +53,15 @@ def _stac_attrs() -> Any:
     return stac.create_convention_attrs(key="stac.json")
 
 
+def _dggs_attrs() -> Any:
+    return dggs.create_convention_attrs(
+        name="healpix",
+        refinement_level=10,
+        spatial_dimension="cells",
+        indexing_scheme="nested",
+    )
+
+
 def test_valid_documents_pass() -> None:
     """Reasonable node/convention combinations validate, at every layer."""
     cases: list[tuple[Any, Any]] = [
@@ -70,6 +79,9 @@ def test_valid_documents_pass() -> None:
         # multiscales and stac are group-only
         (multiscales, group_node(_multiscales_attrs())),
         (stac, group_node(_stac_attrs())),
+        # dggs applies to both node types
+        (dggs, array_node(_dggs_attrs())),
+        (dggs, group_node(_dggs_attrs())),
     ]
     for module, node in cases:
         expected = {**node, "attributes": validate_json_object(node["attributes"])}
@@ -220,6 +232,13 @@ def test_stac_narrowing_rejects_wrong_field_type() -> None:
     attrs["stac:key"] = 1
     with pytest.raises(TypeError, match="'stac:key' must be a string"):
         stac.validate_group_metadata(group_node(attrs))
+
+
+def test_dggs_narrowing_rejects_wrong_field_type() -> None:
+    attrs: Any = _dggs_attrs()
+    attrs["dggs"]["spatial_dimension"] = 1
+    with pytest.raises(TypeError, match="'spatial_dimension' must be a string"):
+        dggs.validate_array_metadata(array_node(attrs))
 
 
 def test_revisioned_validation_prepares_node_once(

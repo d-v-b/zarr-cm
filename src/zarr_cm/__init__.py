@@ -15,8 +15,8 @@ from typing_extensions import TypedDict
 if typing.TYPE_CHECKING:
     from collections.abc import Iterable, Mapping
 
+from . import dggs, multiscales, proj, spatial, stac, uom
 from . import license as license_
-from . import multiscales, proj, spatial, stac, uom
 from ._core import (
     ArrayMetadata,
     ArrayMetadataInput,
@@ -34,6 +34,7 @@ from ._core import (
     validate_json_object,
 )
 from ._version import version as __version__
+from .dggs import DggsAttrs, DggsConventionAttrs, DggsEllipsoid
 from .geo_proj import (
     GeoProjAttrs,
     GeoProjAttrsR2,
@@ -65,7 +66,7 @@ from .stac import StacAttrs, StacConventionAttrs, StacLink
 from .uom import UCUM, UomAttrs, UomConventionAttrs
 
 ConventionName = Literal[
-    "proj", "spatial", "multiscales", "license", "uom", "stac", "geo-proj"
+    "proj", "spatial", "multiscales", "license", "uom", "stac", "dggs", "geo-proj"
 ]
 """Display names accepted by the multi-convention functions.
 
@@ -75,7 +76,7 @@ everywhere a name is taken as input, but functions that *report* names
 """
 
 CanonicalConventionName = Literal[
-    "proj", "spatial", "multiscales", "license", "uom", "stac"
+    "proj", "spatial", "multiscales", "license", "uom", "stac", "dggs"
 ]
 """The canonical subset of `ConventionName` (no aliases)."""
 
@@ -166,6 +167,16 @@ _REGISTRY: Final[dict[CanonicalConventionName, _ConventionModule]] = {
         stac.extract,
         stac.detect,
     ),
+    "dggs": _ConventionModule(
+        dggs.UUID,
+        dggs.CMO,
+        dggs.CONVENTION_KEYS,
+        dggs.REVISION_BY_SCHEMA_URL,
+        dggs.validate,
+        dggs.insert,
+        dggs.extract,
+        dggs.detect,
+    ),
 }
 
 CONVENTION_ALIASES: Final[dict[str, CanonicalConventionName]] = {"geo-proj": "proj"}
@@ -181,6 +192,7 @@ ALL_CONVENTION_KEYS: Final = frozenset(
     | license_.CONVENTION_KEYS
     | uom.CONVENTION_KEYS
     | stac.CONVENTION_KEYS
+    | dggs.CONVENTION_KEYS
 )
 
 MultiConventionAttrs = TypedDict(
@@ -209,6 +221,8 @@ MultiConventionAttrs = TypedDict(
         "stac:collection": NotRequired[JSONDict],
         "stac:key": NotRequired[str],
         "stac:link": NotRequired[StacLink],
+        # dggs
+        "dggs": NotRequired[DggsAttrs],
     },
     extra_items=JSONValue,
 )
@@ -548,6 +562,9 @@ __all__ = [
     "ConventionAttrs",
     "ConventionMetadataObject",
     "ConventionName",
+    "DggsAttrs",
+    "DggsConventionAttrs",
+    "DggsEllipsoid",
     "GeoProjAttrs",
     "GeoProjAttrsR2",
     "GeoProjAttrsR3",

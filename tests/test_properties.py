@@ -338,7 +338,7 @@ def test_upstream_schema_id_is_a_recognized_url(rev: Revision) -> None:
         pytest.skip("upstream schema declares no $id")
     assert schema_id in rev.module.RECOGNIZED_SCHEMA_URLS
     if rev.label is None:
-        # Unrevisioned conventions (license, uom, stac) expose no `revision=`
+        # Unrevisioned conventions (license, uom, stac, dggs) expose no `revision=`
         # kwarg, so there is no public label to compare against -- just
         # confirm the schema's own $id is one this module recognizes as itself.
         assert schema_id in rev.package.REVISION_BY_SCHEMA_URL

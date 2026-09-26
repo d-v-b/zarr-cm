@@ -12,8 +12,8 @@ from typing import Any
 
 import pytest
 
+from zarr_cm import dggs, multiscales, proj, spatial, stac, uom
 from zarr_cm import license as license_
-from zarr_cm import multiscales, proj, spatial, stac, uom
 from zarr_cm._core import validate_json_object
 
 # (module, kwargs) pairs covering every convention.
@@ -25,6 +25,15 @@ CASES: list[tuple[Any, dict[str, Any]]] = [
     (license_, {"spdx": "MIT"}),
     (uom, {"ucum": {"unit": "m"}}),
     (stac, {"key": "stac.json"}),
+    (
+        dggs,
+        {
+            "name": "healpix",
+            "refinement_level": 10,
+            "spatial_dimension": "cells",
+            "indexing_scheme": "nested",
+        },
+    ),
 ]
 
 
