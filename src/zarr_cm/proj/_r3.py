@@ -177,12 +177,14 @@ def validate(data: Mapping[str, JSONValue]) -> GeoProjAttrs:
             "At least one of 'proj:code', 'proj:wkt2', 'proj:projjson' must be present"
         )
         raise ValueError(msg)
-    if "proj:code" in data and (
-        not isinstance(data["proj:code"], str)
-        or not _CODE_PATTERN.match(data["proj:code"])
-    ):
-        msg = f"'proj:code' must match {_CODE_PATTERN.pattern!r}, got {data['proj:code']!r}"
-        raise ValueError(msg)
+    if "proj:code" in data:
+        code = data["proj:code"]
+        if not isinstance(code, str):
+            msg = f"'proj:code' must be a string, got {type(code).__name__}"
+            raise TypeError(msg)
+        if not _CODE_PATTERN.fullmatch(code):
+            msg = f"'proj:code' must match {_CODE_PATTERN.pattern!r}, got {code!r}"
+            raise ValueError(msg)
     if "proj:wkt2" in data and not isinstance(data["proj:wkt2"], str):
         msg = f"'proj:wkt2' must be a string, got {type(data['proj:wkt2']).__name__}"
         raise TypeError(msg)

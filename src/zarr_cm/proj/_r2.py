@@ -101,6 +101,9 @@ RECOGNIZED_SCHEMA_URLS: Final[frozenset[str]] = frozenset(
 
 CONVENTION_KEYS: Final = {"proj:code", "proj:wkt2", "proj:projjson"}
 
+# Applied with `fullmatch`: the schema's pattern is an ECMA-262 regex, whose `$`
+# matches only at the end of input, while Python's `$` also matches before a
+# trailing newline.
 _CODE_PATTERN: Final = re.compile(r"^[A-Z]+:[0-9]+$")
 
 
@@ -147,7 +150,23 @@ def create_convention_attrs(
 def insert(
     attrs: Mapping[str, JSONValue], data: GeoProjAttrs, *, overwrite: bool = False
 ) -> JSONDict:
-    """Insert proj (r2) convention metadata into an attributes dict."""
+    """Insert proj (r2) convention metadata into an attributes dict.
+
+    r2 allows exactly one proj field, so any proj field already in *attrs*
+    collides with *data* -- not only the same key. Without `overwrite` that
+    raises `ValueError`; with it, the existing proj fields are dropped and
+    replaced by *data*'s, rather than left beside them (a `proj:code` next to
+    a newly inserted `proj:wkt2` would be invalid).
+    """
+    existing = sorted(CONVENTION_KEYS & attrs.keys())
+    if existing and not overwrite:
+        msg = (
+            "attrs already contains proj fields that would be overwritten by "
+            f"convention data: {existing}. Exactly one proj field may be "
+            "present; pass overwrite=True to replace them."
+        )
+        raise ValueError(msg)
+    attrs = {k: v for k, v in attrs.items() if k not in CONVENTION_KEYS}
     return insert_convention(
         attrs, CMO, data, overwrite=overwrite, schema_urls=RECOGNIZED_SCHEMA_URLS
     )
@@ -175,12 +194,14 @@ def validate(data: Mapping[str, JSONValue]) -> GeoProjAttrs:
     if len(present) != 1:
         msg = f"Exactly one of 'proj:code', 'proj:wkt2', 'proj:projjson' must be present, got: {present}"
         raise ValueError(msg)
-    if "proj:code" in data and (
-        not isinstance(data["proj:code"], str)
-        or not _CODE_PATTERN.match(data["proj:code"])
-    ):
-        msg = f"'proj:code' must match {_CODE_PATTERN.pattern!r}, got {data['proj:code']!r}"
-        raise ValueError(msg)
+    if "proj:code" in data:
+        code = data["proj:code"]
+        if not isinstance(code, str):
+            msg = f"'proj:code' must be a string, got {type(code).__name__}"
+            raise TypeError(msg)
+        if not _CODE_PATTERN.fullmatch(code):
+            msg = f"'proj:code' must match {_CODE_PATTERN.pattern!r}, got {code!r}"
+            raise ValueError(msg)
     if "proj:wkt2" in data and not isinstance(data["proj:wkt2"], str):
         msg = f"'proj:wkt2' must be a string, got {type(data['proj:wkt2']).__name__}"
         raise TypeError(msg)

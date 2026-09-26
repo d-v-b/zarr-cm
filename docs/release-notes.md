@@ -10,6 +10,23 @@ carries the full pull-request list.
 <!-- Keep the newest version at the top. Sections: Highlights, Added, Changed,
 Fixed, Breaking, Internal — include only the ones with content. -->
 
+## Unreleased
+
+### Fixed
+
+- `proj` `r2` no longer accepts a `proj:code` with a trailing newline (e.g.
+  `"EPSG:4326\n"`). The upstream schema's pattern is an ECMA-262 regex, whose
+  `$` matches only at the end of input; Python's `$` also matched before a final
+  newline.
+- `proj` (`r2` and `r3`) raises `TypeError`, not `ValueError`, when `proj:code`
+  is not a string, matching `proj:wkt2`, `proj:projjson` and the other
+  conventions. A value of the right type that fails the pattern still raises
+  `ValueError`.
+- `proj` `r2` `insert()` treats any existing proj field as a collision, not only
+  the same key. Inserting a `proj:wkt2` into attributes that already carried a
+  `proj:code` used to leave both, which r2's "exactly one" rule rejects; it now
+  raises `ValueError`, and with `overwrite=True` the old field is replaced.
+
 ## 0.5.0 — 2026-09-25
 
 ### Highlights
