@@ -171,7 +171,8 @@ def validate(data: Mapping[str, JSONValue]) -> LicenseAttrs:
     """Validate license convention data.
 
     At least one of `spdx`, `url`, `text`, `file`, or `path`
-    must be present.
+    must be present. `file` and `path` are relative to the node, so the spec
+    forbids them to start or end with `/`.
     """
     keys = ("spdx", "url", "text", "file", "path")
     if not any(k in data for k in keys):
@@ -181,6 +182,11 @@ def validate(data: Mapping[str, JSONValue]) -> LicenseAttrs:
         if key in data and not isinstance(data[key], str):
             msg = f"'{key}' must be a string, got {type(data[key]).__name__}"
             raise TypeError(msg)
+    for key in ("file", "path"):
+        value = data.get(key)
+        if isinstance(value, str) and (value.startswith("/") or value.endswith("/")):
+            msg = f"'{key}' is a relative path and must not start or end with '/', got {value!r}"
+            raise ValueError(msg)
     return cast("LicenseAttrs", data)
 
 
