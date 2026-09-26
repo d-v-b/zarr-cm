@@ -106,6 +106,21 @@ RECOGNIZED_SCHEMA_URLS: Final[frozenset[str]] = frozenset(
 )
 """Every schema_url this revision reads as its own: `SCHEMA_URL` plus aliases."""
 
+ALIAS_SPEC_URLS: Final[frozenset[str]] = frozenset(
+    {
+        "https://github.com/zarr-conventions/spatial/blob/v1/README.md",
+    }
+)
+"""Other spec_urls this revision recognizes as its own identity.
+
+The spec_url counterparts of `ALIAS_SCHEMA_URLS`' draft-era URLs: the draft
+convention schemas `const`-required a `blob/v1` spec_url alongside the
+`refs/tags/v1` schema_url, and deployed writers copied both.
+"""
+
+RECOGNIZED_SPEC_URLS: Final[frozenset[str]] = frozenset({SPEC_URL, *ALIAS_SPEC_URLS})
+"""Every spec_url this revision reads as its own: `SPEC_URL` plus aliases."""
+
 CONVENTION_KEYS: Final = {
     "spatial:dimensions",
     "spatial:bbox",
@@ -190,7 +205,12 @@ def insert(
 ) -> JSONDict:
     """Insert spatial (r2) convention metadata into an attributes dict."""
     return insert_convention(
-        attrs, CMO, data, overwrite=overwrite, schema_urls=RECOGNIZED_SCHEMA_URLS
+        attrs,
+        CMO,
+        data,
+        overwrite=overwrite,
+        schema_urls=RECOGNIZED_SCHEMA_URLS,
+        spec_urls=RECOGNIZED_SPEC_URLS,
     )
 
 
@@ -201,7 +221,9 @@ def extract(
     remaining, convention_data = extract_convention(
         attrs,
         CONVENTION_KEYS,
-        lambda cmo: declares_convention(cmo, UUID, RECOGNIZED_SCHEMA_URLS),
+        lambda cmo: declares_convention(
+            cmo, UUID, RECOGNIZED_SCHEMA_URLS, RECOGNIZED_SPEC_URLS
+        ),
     )
     return remaining, cast("SpatialAttrs", convention_data)
 
@@ -276,7 +298,11 @@ def _validate_context(context: NodeContext) -> SpatialAttrs:
     """Validate spatial against an already prepared node."""
     data = validate(
         node_convention_data(
-            context, CMO, CONVENTION_KEYS, schema_urls=RECOGNIZED_SCHEMA_URLS
+            context,
+            CMO,
+            CONVENTION_KEYS,
+            schema_urls=RECOGNIZED_SCHEMA_URLS,
+            spec_urls=RECOGNIZED_SPEC_URLS,
         )
     )
     if context.node_type == "array" and "spatial:dimensions" not in data:

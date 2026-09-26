@@ -10,6 +10,32 @@ carries the full pull-request list.
 <!-- Keep the newest version at the top. Sections: Highlights, Added, Changed,
 Fixed, Breaking, Internal — include only the ones with content. -->
 
+## Unreleased
+
+### Fixed
+
+- A `zarr_conventions` entry that identifies its convention by `spec_url` alone
+  (no `uuid`, no `schema_url`) was not recognized: `detect` raised "not
+  present", `validate_*_metadata` raised "not declared", and `validate_all` /
+  `extract_all` / `detect_revisions` skipped it, for every convention. Such an
+  entry now counts when its `spec_url` is one the convention recognizes. Each
+  revision now has `ALIAS_SPEC_URLS` / `RECOGNIZED_SPEC_URLS`, and each
+  convention package has `REVISION_BY_SPEC_URL`, alongside the existing
+  `schema_url` constants. zarr-cm checks identifiers in the order the spec sets:
+  `uuid`, then `schema_url`, then `spec_url`. So an entry whose `schema_url` is
+  unrecognized is still not recognized, even when its `spec_url` is.
+- An entry with a `uuid` and a recognized `spec_url` but no `schema_url` now
+  detects as the revision its `spec_url` names. Before, `detect` returned `None`
+  and validation used the latest revision. Pinning a different revision with
+  `revision=` now raises `ValueError`, just as it does for a mismatched
+  `schema_url`.
+- Passing a non-mapping (`None`, a list, ...) as attributes or as a metadata
+  document raised `AttributeError` from deep inside the library, or was
+  sometimes accepted. The shared entry points now raise `TypeError`: `detect`,
+  `extract` and `insert`, `validate` for `proj`/`spatial`/`multiscales`,
+  `validate_{group,array,node}_metadata`, and the `*_many` / `*_all` /
+  `detect_revisions` functions.
+
 ## 0.5.0 — 2026-09-25
 
 ### Highlights

@@ -24,6 +24,7 @@ from strategies import (
     Revision,
     foreign_attrs,
     foreign_declarations,
+    own_declarations,
     revision_pairs,
     revision_selections,
     revisions,
@@ -187,19 +188,17 @@ def test_node_level_validation_accepts_what_we_write(
         )
 
 
-# --- declarations: aliases, schema_url-only, merging -----------------------------------
+# --- declarations: aliases, schema_url-/spec_url-only, merging -----------------------
 
 
 @given(revisions, st.data())
-def test_every_recognized_schema_url_reads_as_this_revision(
+def test_every_recognized_declaration_reads_as_this_revision(
     rev: Revision, data: st.DataObject
 ) -> None:
-    """Canonical or alias, uuid or not: each recognized URL selects this revision."""
+    """Canonical or alias, schema_url or spec_url, uuid or not: each recognized
+    declaration selects this revision."""
     attrs = rev.module.create_convention_attrs(**data.draw(rev.kwargs))
-    url = data.draw(st.sampled_from(sorted(rev.module.RECOGNIZED_SCHEMA_URLS)))
-    with_uuid = data.draw(st.booleans())
-    declaration = {"schema_url": url} | ({"uuid": rev.module.UUID} if with_uuid else {})
-    attrs["zarr_conventions"] = [declaration]
+    attrs["zarr_conventions"] = [data.draw(own_declarations(rev))]
     node = wrap_attrs(attrs, node_type=rev.node_type)
 
     if rev.label is not None:
