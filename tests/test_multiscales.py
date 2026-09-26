@@ -7,7 +7,7 @@ import jsonschema
 import pytest
 from conftest import as_mapping, as_sequence, wrap_attrs
 
-from zarr_cm import multiscales
+from zarr_cm import JSONValue, multiscales
 from zarr_cm.multiscales import CMO, MultiscalesAttrs
 from zarr_cm.multiscales import r2 as multiscales_r2
 
@@ -229,3 +229,44 @@ def test_r2_validate_entry_not_object() -> None:
 def test_multiscales_unknown_revision_label() -> None:
     with pytest.raises(ValueError, match="Unknown revision"):
         multiscales.create(layout=[{"asset": "0"}], revision="bogus")
+
+
+def test_r2_create_accepts_list_layout() -> None:
+    # The revision-level constructors accept the same layout shapes as the
+    # package dispatcher: a list (what JSON decodes to) as well as a tuple.
+    assert multiscales_r2.create(layout=[{"asset": "0"}]) == {
+        "layout": [{"asset": "0"}]
+    }
+    attrs = multiscales_r2.create_convention_attrs(layout=[{"asset": "0"}])
+    assert attrs["multiscales"] == {"layout": [{"asset": "0"}]}
+
+
+@pytest.mark.parametrize("path", ["0", "level1", "0/data", "resolutions/full", "./0"])
+def test_r2_validate_valid_paths(path: str) -> None:
+    data: dict[str, JSONValue] = {
+        "layout": [
+            {"asset": "base"},
+            {"asset": path, "derived_from": path, "transform": {}},
+        ]
+    }
+    assert multiscales_r2.validate(data) == data
+
+
+def test_r2_validate_asset_missing() -> None:
+    with pytest.raises(ValueError, match=r"layout\[0\]\.asset is required"):
+        multiscales_r2.validate({"layout": [{"transform": {}}]})
+
+
+@pytest.mark.parametrize("field", ["asset", "derived_from"])
+def test_r2_validate_path_not_string(field: str) -> None:
+    entry: dict[str, JSONValue] = {"asset": "0", "transform": {}, field: 0}
+    with pytest.raises(TypeError, match=rf"layout\[0\]\.{field} must be a string"):
+        multiscales_r2.validate({"layout": [entry]})
+
+
+@pytest.mark.parametrize("field", ["asset", "derived_from"])
+@pytest.mark.parametrize("path", ["", "/0", "0/", "0//1", "../0", "0/../1", "a..b"])
+def test_r2_validate_path_invalid(field: str, path: str) -> None:
+    entry: dict[str, JSONValue] = {"asset": "0", "transform": {}, field: path}
+    with pytest.raises(ValueError, match=rf"layout\[0\]\.{field} must be a valid"):
+        multiscales_r2.validate({"layout": [entry]})

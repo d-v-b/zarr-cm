@@ -10,6 +10,17 @@ carries the full pull-request list.
 <!-- Keep the newest version at the top. Sections: Highlights, Added, Changed,
 Fixed, Breaking, Internal — include only the ones with content. -->
 
+## Unreleased
+
+### Fixed
+
+- `multiscales.r2.create` and `multiscales.r2.create_convention_attrs` accept a
+  `list` layout under the type checker, as the package-level functions already
+  did; they previously demanded a `tuple`.
+- `multiscales` validation raises `TypeError` when a layout entry's `asset` or
+  `derived_from` is not a string, and reports a missing `asset` as missing,
+  instead of raising `ValueError` saying the path is invalid.
+
 ## 0.5.0 — 2026-09-25
 
 ### Highlights
