@@ -22,6 +22,10 @@ Fixed, Breaking, Internal — include only the ones with content. -->
   is not a string, matching `proj:wkt2`, `proj:projjson` and the other
   conventions. A value of the right type that fails the pattern still raises
   `ValueError`.
+- `proj` `r2` `insert()` treats any existing proj field as a collision, not only
+  the same key. Inserting a `proj:wkt2` into attributes that already carried a
+  `proj:code` used to leave both, which r2's "exactly one" rule rejects; it now
+  raises `ValueError`, and with `overwrite=True` the old field is replaced.
 
 ## 0.5.0 — 2026-09-25
 

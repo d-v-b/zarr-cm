@@ -150,7 +150,23 @@ def create_convention_attrs(
 def insert(
     attrs: Mapping[str, JSONValue], data: GeoProjAttrs, *, overwrite: bool = False
 ) -> JSONDict:
-    """Insert proj (r2) convention metadata into an attributes dict."""
+    """Insert proj (r2) convention metadata into an attributes dict.
+
+    r2 allows exactly one proj field, so any proj field already in *attrs*
+    collides with *data* -- not only the same key. Without `overwrite` that
+    raises `ValueError`; with it, the existing proj fields are dropped and
+    replaced by *data*'s, rather than left beside them (a `proj:code` next to
+    a newly inserted `proj:wkt2` would be invalid).
+    """
+    existing = sorted(CONVENTION_KEYS & attrs.keys())
+    if existing and not overwrite:
+        msg = (
+            "attrs already contains proj fields that would be overwritten by "
+            f"convention data: {existing}. Exactly one proj field may be "
+            "present; pass overwrite=True to replace them."
+        )
+        raise ValueError(msg)
+    attrs = {k: v for k, v in attrs.items() if k not in CONVENTION_KEYS}
     return insert_convention(
         attrs, CMO, data, overwrite=overwrite, schema_urls=RECOGNIZED_SCHEMA_URLS
     )

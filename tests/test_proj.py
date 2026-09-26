@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+from typing import Any
 
 import jsonschema
 import pytest
@@ -187,6 +188,37 @@ def test_r2_extract_roundtrip() -> None:
     remaining, extracted = proj_r2.extract(inserted)
     assert extracted == data
     assert remaining == {"foo": "bar"}
+
+
+@pytest.mark.parametrize(
+    "existing",
+    [
+        {"code": "EPSG:3857"},
+        {"wkt2": 'GEOGCS["WGS 84"]'},
+        {"projjson": {"type": "GeographicCRS"}},
+    ],
+)
+def test_r2_insert_overwrite_replaces_every_proj_field(
+    existing: dict[str, Any],
+) -> None:
+    # r2 allows exactly one proj field: overwriting must drop the old field
+    # even when it is a different key from the one being inserted. The package
+    # dispatch path must behave the same.
+    attrs = proj_r2.insert({"foo": "bar"}, proj_r2.create(**existing))
+    data = proj_r2.create(code="EPSG:4326")
+    for inserted in (
+        proj_r2.insert(attrs, data, overwrite=True),
+        proj.insert(attrs, data, revision="r2", overwrite=True),
+    ):
+        remaining, extracted = proj_r2.extract(inserted)
+        assert extracted == data
+        assert remaining == {"foo": "bar"}
+
+
+def test_r2_insert_different_proj_field_collision_raises() -> None:
+    attrs = proj_r2.insert({}, proj_r2.create(code="EPSG:4326"))
+    with pytest.raises(ValueError, match=r"overwritten.*\['proj:code'\]"):
+        proj_r2.insert(attrs, proj_r2.create(wkt2='GEOGCS["WGS 84"]'))
 
 
 def test_proj_unknown_revision_label() -> None:
