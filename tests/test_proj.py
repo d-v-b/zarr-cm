@@ -22,6 +22,19 @@ def test_r2_rejects_malformed_code() -> None:
         proj_r2.validate({"proj:code": "epsg-4326"})
 
 
+def test_r2_rejects_code_with_trailing_newline() -> None:
+    # JSON Schema patterns are ECMA-262 regexes, whose `$` matches only at the
+    # end of input; Python's `$` also matches before a trailing newline.
+    with pytest.raises(ValueError, match="proj:code"):
+        proj_r2.validate({"proj:code": "EPSG:4326\n"})
+
+
+@pytest.mark.parametrize("revision", ["r2", "r3"])
+def test_rejects_non_string_code(revision: str) -> None:
+    with pytest.raises(TypeError, match="proj:code"):
+        proj.validate({"proj:code": 4326}, revision=revision)
+
+
 def test_r2_still_enforces_exactly_one() -> None:
     with pytest.raises(ValueError, match="Exactly one"):
         proj_r2.validate({})

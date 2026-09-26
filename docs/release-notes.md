@@ -10,6 +10,19 @@ carries the full pull-request list.
 <!-- Keep the newest version at the top. Sections: Highlights, Added, Changed,
 Fixed, Breaking, Internal — include only the ones with content. -->
 
+## Unreleased
+
+### Fixed
+
+- `proj` `r2` no longer accepts a `proj:code` with a trailing newline (e.g.
+  `"EPSG:4326\n"`). The upstream schema's pattern is an ECMA-262 regex, whose
+  `$` matches only at the end of input; Python's `$` also matched before a final
+  newline.
+- `proj` (`r2` and `r3`) raises `TypeError`, not `ValueError`, when `proj:code`
+  is not a string, matching `proj:wkt2`, `proj:projjson` and the other
+  conventions. A value of the right type that fails the pattern still raises
+  `ValueError`.
+
 ## 0.5.0 — 2026-09-25
 
 ### Highlights

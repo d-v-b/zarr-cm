@@ -101,6 +101,9 @@ RECOGNIZED_SCHEMA_URLS: Final[frozenset[str]] = frozenset(
 
 CONVENTION_KEYS: Final = {"proj:code", "proj:wkt2", "proj:projjson"}
 
+# Applied with `fullmatch`: the schema's pattern is an ECMA-262 regex, whose `$`
+# matches only at the end of input, while Python's `$` also matches before a
+# trailing newline.
 _CODE_PATTERN: Final = re.compile(r"^[A-Z]+:[0-9]+$")
 
 
@@ -175,12 +178,14 @@ def validate(data: Mapping[str, JSONValue]) -> GeoProjAttrs:
     if len(present) != 1:
         msg = f"Exactly one of 'proj:code', 'proj:wkt2', 'proj:projjson' must be present, got: {present}"
         raise ValueError(msg)
-    if "proj:code" in data and (
-        not isinstance(data["proj:code"], str)
-        or not _CODE_PATTERN.match(data["proj:code"])
-    ):
-        msg = f"'proj:code' must match {_CODE_PATTERN.pattern!r}, got {data['proj:code']!r}"
-        raise ValueError(msg)
+    if "proj:code" in data:
+        code = data["proj:code"]
+        if not isinstance(code, str):
+            msg = f"'proj:code' must be a string, got {type(code).__name__}"
+            raise TypeError(msg)
+        if not _CODE_PATTERN.fullmatch(code):
+            msg = f"'proj:code' must match {_CODE_PATTERN.pattern!r}, got {code!r}"
+            raise ValueError(msg)
     if "proj:wkt2" in data and not isinstance(data["proj:wkt2"], str):
         msg = f"'proj:wkt2' must be a string, got {type(data['proj:wkt2']).__name__}"
         raise TypeError(msg)
