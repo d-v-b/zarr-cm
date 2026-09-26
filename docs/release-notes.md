@@ -10,6 +10,15 @@ carries the full pull-request list.
 <!-- Keep the newest version at the top. Sections: Highlights, Added, Changed,
 Fixed, Breaking, Internal — include only the ones with content. -->
 
+## Unreleased
+
+### Fixed
+
+- `uom.extract` returns an empty dict when the attributes hold no `uom` data,
+  instead of `{"ucum": {}}` — a valid uom object (an arbitrary unit) that made
+  an absent convention look present. As a result `validate_many(attrs, ["uom"])`
+  no longer passes on attributes that carry no `uom` at all.
+
 ## 0.5.0 — 2026-09-25
 
 ### Highlights
