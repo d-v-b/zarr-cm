@@ -24,3 +24,5 @@ with a README and its source, embedded in the pages below.
 - [uom](uom.md) — units of measurement as UCUM codes (single revision)
 - [stac](stac.md) — STAC Item/Collection metadata on a group (single revision,
   group-only)
+- [nz](nz.md) — NetCDF-style structure: `conventions`, `_FillValue` and required
+  `dimension_names` (single revision)

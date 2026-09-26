@@ -53,3 +53,7 @@
 ## stac
 
 ::: zarr_cm.stac
+
+## nz
+
+::: zarr_cm.nz

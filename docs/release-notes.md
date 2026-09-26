@@ -10,6 +10,22 @@ carries the full pull-request list.
 <!-- Keep the newest version at the top. Sections: Highlights, Added, Changed,
 Fixed, Breaking, Internal — include only the ones with content. -->
 
+## Unreleased
+
+### Added
+
+- `zarr_cm.nz`: the [nz convention](https://github.com/zarr-conventions/nz)
+  (NZ-1.0, "NetCDF - Zarr Convention"; single revision `v1`, snapshotted from
+  upstream `main` at `7c923cf`). Its attributes are the plain netCDF names
+  `conventions` and `_FillValue`. Group documents must carry a `conventions`
+  string listing `NZ-1.0`; array documents must carry a fully populated
+  `dimension_names` (one non-empty name per axis of `shape`). Rules that span
+  several nodes (the shared dimension constraint, root-group identification,
+  dimension coordinates) are not checked. Participates in every multi-convention
+  function (`"nz"` is in `CONVENTION_NAMES`), exports `NzAttrs` and
+  `NzConventionAttrs` at the top level, and is tracked by the upstream drift
+  check.
+
 ## 0.5.0 — 2026-09-25
 
 ### Highlights

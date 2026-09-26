@@ -1,0 +1,184 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "NZ-1.0 Convention",
+  "description": "Schema for NZ (NetCDF Zarr convention) — structural interoperability layer for scientific array conventions on Zarr v3",
+  "type": "object",
+  "properties": {
+    "zarr_format": {
+      "type": "integer",
+      "const": 3,
+      "description": "Zarr format version"
+    },
+    "node_type": {
+      "type": "string",
+      "enum": ["array", "group"],
+      "description": "Type of Zarr node"
+    },
+    "attributes": {
+      "type": "object",
+      "description": "Zarr attributes containing convention metadata and properties",
+      "properties": {
+        "zarr_conventions": {
+          "type": "array",
+          "description": "Array of convention metadata objects",
+          "contains": {
+            "$ref": "#/$defs/conventionMetadata"
+          }
+        }
+      },
+      "required": ["zarr_conventions"]
+    }
+  },
+  "required": ["zarr_format", "node_type", "attributes"],
+  "additionalProperties": true,
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "node_type": { "const": "group" }
+        }
+      },
+      "then": {
+        "$ref": "#/$defs/groupRequirements"
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "node_type": { "const": "array" }
+        }
+      },
+      "then": {
+        "$ref": "#/$defs/arrayRequirements"
+      }
+    }
+  ],
+  "$defs": {
+    "conventionMetadata": {
+      "type": "object",
+      "description": "NZ convention metadata object for use in zarr_conventions array",
+      "properties": {
+        "schema_url": {
+          "type": "string",
+          "const": "https://raw.githubusercontent.com/zarr-conventions/nz/refs/tags/v1/schema.json",
+          "description": "URL to the JSON Schema definition for this convention"
+        },
+        "spec_url": {
+          "type": "string",
+          "const": "https://github.com/zarr-conventions/nz/blob/v1/README.md",
+          "description": "URL to the full specification document"
+        },
+        "uuid": {
+          "type": "string",
+          "const": "d0a980b5-c644-4dcc-85a1-283799a58f40",
+          "description": "UUID that permanently identifies this convention"
+        },
+        "name": {
+          "type": "string",
+          "const": "NZ-1.0",
+          "description": "Human-readable name of the convention"
+        },
+        "description": {
+          "type": "string",
+          "description": "Brief description of the convention's purpose"
+        }
+      },
+      "anyOf": [
+        { "required": ["schema_url"] },
+        { "required": ["spec_url"] },
+        { "required": ["uuid"] }
+      ],
+      "additionalProperties": false
+    },
+    "zarrDataType": {
+      "type": "string",
+      "description": "Zarr v3 data type name",
+      "enum": [
+        "bool",
+        "int8",
+        "uint8",
+        "int16",
+        "uint16",
+        "int32",
+        "uint32",
+        "int64",
+        "uint64",
+        "float32",
+        "float64",
+        "complex64",
+        "complex128"
+      ]
+    },
+    "nczarrAttr": {
+      "type": "object",
+      "description": "The _nczarr_attr attribute: attribute type annotations using Zarr v3 data type names",
+      "properties": {
+        "types": {
+          "type": "object",
+          "description": "Maps attribute names to Zarr v3 data type names",
+          "additionalProperties": {
+            "$ref": "#/$defs/zarrDataType"
+          }
+        }
+      },
+      "required": ["types"],
+      "additionalProperties": false
+    },
+    "groupRequirements": {
+      "type": "object",
+      "description": "Requirements specific to group nodes in NZ",
+      "properties": {
+        "attributes": {
+          "type": "object",
+          "properties": {
+            "conventions": {
+              "type": "string",
+              "pattern": "NZ-1\\.0",
+              "description": "Space-separated convention identifiers; MUST include NZ-1.0"
+            },
+            "_nczarr_attr": {
+              "$ref": "#/$defs/nczarrAttr"
+            }
+          },
+          "required": ["conventions"]
+        }
+      }
+    },
+    "arrayRequirements": {
+      "type": "object",
+      "description": "Requirements specific to array nodes in NZ",
+      "properties": {
+        "shape": {
+          "type": "array",
+          "items": { "type": "integer", "minimum": 0 },
+          "description": "Array shape"
+        },
+        "dimension_names": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "description": "Dimension labels; MUST have same length as shape; no null or empty entries"
+        },
+        "data_type": {
+          "type": "string",
+          "description": "Array data type"
+        },
+        "attributes": {
+          "type": "object",
+          "properties": {
+            "_FillValue": {
+              "description": "Semantic missing data indicator"
+            },
+            "_nczarr_attr": {
+              "$ref": "#/$defs/nczarrAttr"
+            }
+          },
+          "additionalProperties": true
+        }
+      },
+      "required": ["dimension_names", "shape"]
+    }
+  }
+}

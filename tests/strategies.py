@@ -22,7 +22,7 @@ from hypothesis import strategies as st
 
 import zarr_cm
 from zarr_cm import license as license_
-from zarr_cm import multiscales, proj, spatial, stac, uom
+from zarr_cm import multiscales, nz, proj, spatial, stac, uom
 
 if TYPE_CHECKING:
     from types import ModuleType
@@ -163,6 +163,29 @@ STAC_KWARGS: st.SearchStrategy[Kwargs] = st.sampled_from(
     )
 )
 
+# --- nz ------------------------------------------------------------------
+
+# Other convention identifiers that may share the `conventions` string. Kept to
+# identifier-shaped tokens: the attribute is space-separated.
+_OTHER_CONVENTION = st.from_regex(r"[A-Za-z][A-Za-z0-9.\-]{0,9}", fullmatch=True)
+
+
+@st.composite
+def _nz_conventions(draw: st.DrawFn) -> str:
+    others = draw(st.lists(_OTHER_CONVENTION, max_size=3))
+    position = draw(st.integers(0, len(others)))
+    return " ".join([*others[:position], nz.IDENTIFIER, *others[position:]])
+
+
+# `conventions` is always set: it is required on groups, the node type the
+# generated data is checked on.
+NZ_KWARGS: st.SearchStrategy[Kwargs] = st.fixed_dictionaries(
+    {
+        "conventions": _nz_conventions(),
+        "fill_value": optional(json_values.filter(lambda v: v is not None)),
+    }
+).map(drop_none)
+
 
 # --- the registry ------------------------------------------------------------
 
@@ -240,6 +263,9 @@ REVISIONS: tuple[Revision, ...] = (
     ),
     Revision("uom", None, uom, uom, _schema("uom.json"), "array", UOM_KWARGS),
     Revision("stac", None, stac, stac, _schema("stac.json"), "group", STAC_KWARGS),
+    # nz applies to both node types, but arrays also need `dimension_names`
+    # outside `attributes`; groups need only `conventions`, which is generated.
+    Revision("nz", None, nz, nz, _schema("nz.json"), "group", NZ_KWARGS),
 )
 
 REVISIONED: tuple[Revision, ...] = tuple(r for r in REVISIONS if r.label is not None)
