@@ -79,7 +79,8 @@ def validate_documents(
 
     The node-level validators see `node_type`, so they enforce what
     attribute-level validation cannot: `multiscales` applies to groups only,
-    and arrays must carry `spatial:dimensions`.
+    and arrays must carry `spatial:dimensions`, each entry naming one of the
+    array's `dimension_names`.
     """
     group_doc = {"zarr_format": 3, "node_type": "group", "attributes": group_attrs}
     array_doc = {
@@ -91,6 +92,7 @@ def validate_documents(
         "chunk_key_encoding": {"name": "default"},
         "fill_value": 0.0,
         "codecs": [{"name": "bytes"}],
+        "dimension_names": ["y", "x"],
         "attributes": array_attrs,
     }
 

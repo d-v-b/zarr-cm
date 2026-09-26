@@ -10,8 +10,8 @@ attributes without the surrounding node, so a group carrying only
 
 from __future__ import annotations
 
-from collections.abc import Sequence
-from typing import TYPE_CHECKING, Final, NotRequired, cast
+from collections.abc import Mapping, Sequence
+from typing import Final, NotRequired, cast
 
 from typing_extensions import TypedDict
 
@@ -30,10 +30,6 @@ from zarr_cm._core import (
     insert_convention,
 )
 from zarr_cm._node import NodeContext, node_convention_data, node_type_of, prepare_node
-
-if TYPE_CHECKING:
-    from collections.abc import Mapping
-
 
 SpatialAttrs = TypedDict(
     "SpatialAttrs",
@@ -206,43 +202,57 @@ def extract(
     return remaining, cast("SpatialAttrs", convention_data)
 
 
+def _fixed_length_array(
+    label: str, value: JSONValue, key: str
+) -> list[JSONValue] | tuple[JSONValue, ...]:
+    """Check *value* is an array of the length `_VALID_LENGTHS` fixes for *key*."""
+    expected = _VALID_LENGTHS[key]
+    if isinstance(value, (list, tuple)):
+        if len(value) == expected:
+            return value
+        msg = f"'{label}' must have exactly {expected} items, got {len(value)}"
+    else:
+        # A ValueError, not a TypeError: this has always been reported as a
+        # length violation, and callers match on it.
+        msg = f"'{label}' must be an array with exactly {expected} items, got {type(value).__name__}"
+    raise ValueError(msg)
+
+
+def _validate_numbers(label: str, value: JSONValue, key: str) -> None:
+    for item in _fixed_length_array(label, value, key):
+        if isinstance(item, bool) or not isinstance(item, int | float):
+            msg = f"'{label}' items must be numbers"
+            raise TypeError(msg)
+
+
+def _validate_shape(label: str, value: JSONValue) -> None:
+    for item in _fixed_length_array(label, value, "spatial:shape"):
+        if isinstance(item, bool) or not isinstance(item, int):
+            msg = f"'{label}' items must be integers"
+            raise TypeError(msg)
+        if item < 1:
+            msg = f"'{label}' items must be positive (>= 1)"
+            raise ValueError(msg)
+
+
 def validate(data: Mapping[str, JSONValue]) -> SpatialAttrs:
     """Validate spatial (r3) convention data: strict 2D, positive shape items.
 
     `spatial:dimensions` is not required: upstream requires it only for
     `node_type == "array"`, which is not visible from *data* alone.
     """
-    for key, expected in _VALID_LENGTHS.items():
-        if key in data:
-            value = data[key]
-            if not isinstance(value, (list, tuple)):
-                msg = f"'{key}' must be an array with exactly {expected} items, got {type(value).__name__}"
-                raise ValueError(msg)
-            n = len(value)
-            if n != expected:
-                msg = f"'{key}' must have exactly {expected} items, got {n}"
-                raise ValueError(msg)
-
     if "spatial:dimensions" in data:
         dimensions = data["spatial:dimensions"]
-        if not isinstance(dimensions, (list, tuple)):
-            msg = "'spatial:dimensions' must be an array"
-            raise TypeError(msg)
-        for value in dimensions:
-            if not isinstance(value, str):
+        for item in _fixed_length_array(
+            "spatial:dimensions", dimensions, "spatial:dimensions"
+        ):
+            if not isinstance(item, str):
                 msg = "'spatial:dimensions' items must be strings"
                 raise TypeError(msg)
 
     for key in ("spatial:bbox", "spatial:transform"):
         if key in data:
-            values = data[key]
-            if not isinstance(values, (list, tuple)):
-                msg = f"'{key}' must be an array"
-                raise TypeError(msg)
-            for value in values:
-                if isinstance(value, bool) or not isinstance(value, int | float):
-                    msg = f"'{key}' items must be numbers"
-                    raise TypeError(msg)
+            _validate_numbers(key, data[key], key)
 
     if "spatial:transform_type" in data and not isinstance(
         data["spatial:transform_type"], str
@@ -251,17 +261,7 @@ def validate(data: Mapping[str, JSONValue]) -> SpatialAttrs:
         raise TypeError(msg)
 
     if "spatial:shape" in data:
-        shape = data["spatial:shape"]
-        if not isinstance(shape, (list, tuple)):
-            msg = "'spatial:shape' must be an array"
-            raise TypeError(msg)
-        for v in shape:
-            if isinstance(v, bool) or not isinstance(v, int):
-                msg = "'spatial:shape' items must be integers"
-                raise TypeError(msg)
-            if v < 1:
-                msg = "'spatial:shape' items must be positive (>= 1)"
-                raise ValueError(msg)
+        _validate_shape("spatial:shape", data["spatial:shape"])
 
     if (
         "spatial:registration" in data
@@ -272,6 +272,62 @@ def validate(data: Mapping[str, JSONValue]) -> SpatialAttrs:
     return cast("SpatialAttrs", data)
 
 
+def _validate_dimension_names(
+    dimensions: Sequence[str], dimension_names: object
+) -> None:
+    """Check each `spatial:dimensions` entry names one of the array's dimensions.
+
+    The spec: every entry MUST match a name in the array's top-level
+    `dimension_names`, so arrays using this convention MUST declare it. The
+    schema cannot express the cross-reference, so it is enforced only here.
+    """
+    if dimension_names is None:
+        msg = "arrays carrying 'spatial:dimensions' must declare 'dimension_names'"
+        raise ValueError(msg)
+    if not isinstance(dimension_names, (list, tuple)):
+        msg = (
+            f"'dimension_names' must be an array, got {type(dimension_names).__name__}"
+        )
+        raise TypeError(msg)
+    missing = [name for name in dimensions if name not in dimension_names]
+    if missing:
+        msg = f"'spatial:dimensions' entries {missing} are not in the array's 'dimension_names' {dimension_names!r}"
+        raise ValueError(msg)
+
+
+def _validate_multiscales_layout(attributes: Mapping[str, JSONValue]) -> None:
+    """Check the per-level `spatial:shape`/`spatial:transform` in a multiscales layout.
+
+    The schema constrains these wherever a `multiscales` key appears, declared
+    or not, so this does too; the rest of the layout is multiscales' own job.
+    """
+    if "multiscales" not in attributes:
+        return
+    multiscales = attributes["multiscales"]
+    if not isinstance(multiscales, Mapping):
+        msg = f"'multiscales' must be an object, got {type(multiscales).__name__}"
+        raise TypeError(msg)
+    if "layout" not in multiscales:
+        return
+    layout = multiscales["layout"]
+    if not isinstance(layout, (list, tuple)):
+        msg = f"'multiscales.layout' must be an array, got {type(layout).__name__}"
+        raise TypeError(msg)
+    for i, item in enumerate(layout):
+        label = f"multiscales.layout[{i}]"
+        if not isinstance(item, Mapping):
+            msg = f"'{label}' must be an object, got {type(item).__name__}"
+            raise TypeError(msg)
+        if "spatial:shape" in item:
+            _validate_shape(f"{label}.spatial:shape", item["spatial:shape"])
+        if "spatial:transform" in item:
+            _validate_numbers(
+                f"{label}.spatial:transform",
+                item["spatial:transform"],
+                "spatial:transform",
+            )
+
+
 def _validate_context(context: NodeContext) -> SpatialAttrs:
     """Validate spatial against an already prepared node."""
     data = validate(
@@ -279,9 +335,14 @@ def _validate_context(context: NodeContext) -> SpatialAttrs:
             context, CMO, CONVENTION_KEYS, schema_urls=RECOGNIZED_SCHEMA_URLS
         )
     )
-    if context.node_type == "array" and "spatial:dimensions" not in data:
-        msg = "'spatial:dimensions' is required on array nodes"
-        raise ValueError(msg)
+    _validate_multiscales_layout(context.attributes)
+    if context.node_type == "array":
+        if "spatial:dimensions" not in data:
+            msg = "'spatial:dimensions' is required on array nodes"
+            raise ValueError(msg)
+        _validate_dimension_names(
+            data["spatial:dimensions"], context.metadata.get("dimension_names")
+        )
     return data
 
 
@@ -292,7 +353,8 @@ def validate_group_metadata(
 
     `spatial:dimensions` is not required here: upstream marks it required only
     when `node_type` is `"array"`, so a group may carry the other spatial:
-    keys -- a union footprint, say -- on their own.
+    keys -- a union footprint, say -- on their own. `spatial:shape` and
+    `spatial:transform` inside `multiscales.layout` items are checked too.
     """
     context = prepare_node(metadata, expected_node_type="group")
     _validate_context(context)
@@ -304,7 +366,9 @@ def validate_array_metadata(
 ) -> ArrayMetadata[SpatialConventionAttrs]:
     """Validate a v3 array metadata document against spatial (r3).
 
-    Arrays must carry `spatial:dimensions`; groups need not.
+    Arrays must carry `spatial:dimensions`; groups need not. Each of its
+    entries must name one of the array's `dimension_names`, which the array
+    must therefore declare.
     """
     context = prepare_node(metadata, expected_node_type="array")
     _validate_context(context)

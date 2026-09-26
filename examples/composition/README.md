@@ -17,8 +17,8 @@ The example shows how to:
   each array carrying its own `spatial:` grid
 - Validate complete group and array metadata documents with the node-level
   validators, which enforce the rules attribute-level validation cannot see:
-  arrays must carry `spatial:dimensions`, and `multiscales` is rejected on array
-  nodes
+  arrays must carry `spatial:dimensions` naming entries of their
+  `dimension_names`, and `multiscales` is rejected on array nodes
 
 ## Running the Example
 

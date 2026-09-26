@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+from typing import TYPE_CHECKING, Any
 
 import jsonschema
 import pytest
@@ -11,6 +12,9 @@ from zarr_cm import spatial
 from zarr_cm.spatial import CMO, SpatialAttrs
 from zarr_cm.spatial import r2 as spatial_r2
 from zarr_cm.spatial import r3 as spatial_r3
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
 
 R2_SCHEMA_PATH = Path(__file__).parent / "schemas" / "spatial-r2.json"
 R2_SCHEMA = json.loads(R2_SCHEMA_PATH.read_text())
@@ -360,3 +364,134 @@ def test_r3_validate_bad_registration() -> None:
 def test_spatial_unknown_revision_label() -> None:
     with pytest.raises(ValueError, match="Unknown revision"):
         spatial.create(dimensions=["y", "x"], revision="bogus")
+
+
+# ---------------------------------------------------------------------------
+# Node-level rules: `dimension_names` on arrays, spatial keys in multiscales
+# layout items. Both revisions share them (their specs differ only in URLs).
+# ---------------------------------------------------------------------------
+
+_REVISION_MODULES = pytest.mark.parametrize("module", [spatial_r2, spatial_r3])
+
+_ARRAY_SHELL: dict[str, Any] = {
+    "zarr_format": 3,
+    "node_type": "array",
+    "data_type": "float64",
+    "shape": [3, 100, 200],
+    "chunk_grid": {"name": "regular", "configuration": {"chunk_shape": [1, 10, 20]}},
+    "chunk_key_encoding": {"name": "default"},
+    "fill_value": 0.0,
+    "codecs": [{"name": "bytes"}],
+}
+
+
+def _array(module: Any, **extra: Any) -> dict[str, Any]:
+    attrs = module.create_convention_attrs(dimensions=["lat", "lon"])
+    return {**_ARRAY_SHELL, **extra, "attributes": attrs}
+
+
+def _group_with_multiscales(module: Any, multiscales_value: Any) -> dict[str, Any]:
+    attrs = {
+        **module.create_convention_attrs(dimensions=["y", "x"]),
+        "multiscales": multiscales_value,
+    }
+    return {"zarr_format": 3, "node_type": "group", "attributes": attrs}
+
+
+def _group(module: Any) -> dict[str, Any]:
+    attrs = module.create_convention_attrs(dimensions=["y", "x"])
+    return {"zarr_format": 3, "node_type": "group", "attributes": attrs}
+
+
+# the spec's multiscales composition example, per-level keys and all
+_LAYOUT: dict[str, Any] = {
+    "layout": [
+        {
+            "asset": "r10m",
+            "spatial:shape": [1200, 1200],
+            "spatial:transform": [10.0, 0.0, 5e5, 0.0, -10.0, 5e6],
+        },
+        {"asset": "r20m", "derived_from": "r10m"},
+    ]
+}
+
+_VALID_NODES: dict[str, Callable[[Any], dict[str, Any]]] = {
+    # the spec's own example: spatial dims in any order, plus a non-spatial one
+    "array-extra-dimension": lambda m: _array(
+        m, dimension_names=["time", "lon", "lat"]
+    ),
+    "array-null-dimension-name": lambda m: _array(
+        m, dimension_names=[None, "lat", "lon"]
+    ),
+    # a group needs no dimension_names: its spatial:dimensions is a default
+    "group-without-dimension-names": _group,
+    "group-multiscales-layout": lambda m: _group_with_multiscales(m, _LAYOUT),
+    "group-empty-multiscales": lambda m: _group_with_multiscales(m, {}),
+}
+
+
+@_REVISION_MODULES
+@pytest.mark.parametrize("case", sorted(_VALID_NODES))
+def test_node_rules_accept_valid_documents(module: Any, case: str) -> None:
+    doc = _VALID_NODES[case](module)
+    assert module.validate_node_metadata(doc) == doc
+    schema = R2_SCHEMA if module is spatial_r2 else R3_SCHEMA
+    jsonschema.validate(doc, schema)
+
+
+@_REVISION_MODULES
+def test_array_requires_dimension_names(module: Any) -> None:
+    with pytest.raises(ValueError, match="must declare 'dimension_names'"):
+        module.validate_array_metadata(_array(module))
+
+
+@_REVISION_MODULES
+def test_array_dimensions_must_be_dimension_names(module: Any) -> None:
+    with pytest.raises(ValueError, match=r"\['lon'\] .* not in the array's"):
+        module.validate_array_metadata(_array(module, dimension_names=["lat", "x"]))
+
+
+@_REVISION_MODULES
+def test_array_dimension_names_not_an_array(module: Any) -> None:
+    with pytest.raises(TypeError, match="'dimension_names' must be an array"):
+        module.validate_array_metadata(_array(module, dimension_names="lat"))
+
+
+@_REVISION_MODULES
+def test_multiscales_not_an_object(module: Any) -> None:
+    with pytest.raises(TypeError, match="'multiscales' must be an object"):
+        module.validate_group_metadata(_group_with_multiscales(module, [1]))
+
+
+@_REVISION_MODULES
+def test_multiscales_layout_not_an_array(module: Any) -> None:
+    with pytest.raises(TypeError, match=r"'multiscales\.layout' must be an array"):
+        module.validate_group_metadata(_group_with_multiscales(module, {"layout": 5}))
+
+
+@_REVISION_MODULES
+def test_multiscales_layout_item_not_an_object(module: Any) -> None:
+    with pytest.raises(
+        TypeError, match=r"'multiscales\.layout\[0\]' must be an object"
+    ):
+        module.validate_group_metadata(_group_with_multiscales(module, {"layout": [5]}))
+
+
+@_REVISION_MODULES
+def test_multiscales_layout_bad_shape(module: Any) -> None:
+    layout = {"layout": [{"asset": "0", "spatial:shape": [0, 1]}]}
+    with pytest.raises(
+        ValueError,
+        match=r"'multiscales\.layout\[0\]\.spatial:shape' items must be positive",
+    ):
+        module.validate_group_metadata(_group_with_multiscales(module, layout))
+
+
+@_REVISION_MODULES
+def test_multiscales_layout_bad_transform(module: Any) -> None:
+    layout = {"layout": [{"asset": "0", "spatial:transform": [1.0, 2.0]}]}
+    with pytest.raises(
+        ValueError,
+        match=r"'multiscales\.layout\[0\]\.spatial:transform' must have exactly 6",
+    ):
+        module.validate_group_metadata(_group_with_multiscales(module, layout))
