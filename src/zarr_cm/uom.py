@@ -136,14 +136,20 @@ def insert(
 def extract(
     attrs: Mapping[str, JSONValue],
 ) -> tuple[JSONDict, UomAttrs]:
-    """Extract uom convention metadata from an attributes dict."""
+    """Extract uom convention metadata from an attributes dict.
+
+    If `attrs` holds no uom data, the extracted value is an empty dict, which
+    `validate()` rejects. It is deliberately not `{"ucum": {}}`: that is a valid
+    uom object (an arbitrary unit), and returning it would make an absent
+    convention indistinguishable from a present one.
+    """
     remaining, convention_data = extract_convention(
         attrs,
         CONVENTION_KEYS,
         lambda cmo: declares_convention(cmo, UUID, RECOGNIZED_SCHEMA_URLS),
     )
     if not convention_data:
-        return remaining, UomAttrs(ucum={})
+        return remaining, cast("UomAttrs", {})
     if "uom" not in convention_data:
         msg = "Extracted convention data does not contain 'uom' key"
         raise KeyError(msg)

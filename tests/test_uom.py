@@ -7,6 +7,7 @@ import jsonschema
 import pytest
 from conftest import as_mapping, as_sequence, wrap_attrs
 
+import zarr_cm
 from zarr_cm import uom
 from zarr_cm.uom import CMO, UomAttrs
 
@@ -119,7 +120,15 @@ def test_extract_missing_convention() -> None:
     attrs = {"foo": "bar"}
     remaining, data = uom.extract(attrs)
     assert remaining == {"foo": "bar"}
-    assert data == {"ucum": {}}
+    # Not `{"ucum": {}}`: that is a valid uom object (an arbitrary unit), so
+    # returning it would make an absent convention indistinguishable from one
+    # that is present.
+    assert data == {}
+
+
+def test_validate_many_missing_convention() -> None:
+    with pytest.raises(ValueError, match="'ucum' is required"):
+        zarr_cm.validate_many({"foo": "bar"}, ["uom"])
 
 
 def test_insert_collision_raises() -> None:
