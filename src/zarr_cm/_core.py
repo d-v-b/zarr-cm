@@ -3,6 +3,7 @@ from __future__ import annotations
 import sys
 from collections.abc import Mapping, Sequence
 from collections.abc import Set as AbstractSet
+from types import MappingProxyType
 from typing import (
     TYPE_CHECKING,
     Final,
@@ -280,55 +281,89 @@ def validate_convention_metadata_objects(
     return result
 
 
+def require_attributes(attrs: object) -> Mapping[str, JSONValue]:
+    """Return *attrs* if it is a mapping; raise `TypeError` otherwise.
+
+    The shared guard at every attributes-level entry point, so a non-mapping
+    argument (`None`, a list, ...) fails with one clear message instead of
+    whatever `AttributeError` the first `.get` would raise.
+    """
+    if not _is_mapping(attrs):
+        msg = f"attributes must be a JSON object, got {type(attrs).__name__}"
+        raise TypeError(msg)
+    return cast("Mapping[str, JSONValue]", attrs)
+
+
+_URLSet: TypeAlias = "AbstractSet[str] | Mapping[str, str]"
+"""A set of recognized URLs, or a `{url: revision label}` map of them."""
+
+
 def declares_convention(
     cmo: ConventionMetadataObject,
     uuid: str,
-    schema_urls: AbstractSet[str] | Mapping[str, str] = frozenset(),
+    schema_urls: _URLSet = frozenset(),
+    spec_urls: _URLSet = frozenset(),
 ) -> bool:
     """Report whether *cmo* declares the convention identified by *uuid*.
 
-    A convention metadata object identifies its convention by `uuid`, by
-    `schema_url`, or by both (the spec requires at least one identifier). A
-    declaration matches when its `uuid` is *uuid*, or -- for declarations that
-    carry no `uuid` -- when its `schema_url` is one of *schema_urls* (any set or
-    `{url: label}` map of the URLs the convention recognizes). A declaration
-    that names a *different* uuid never matches, whatever its schema_url says.
+    A convention metadata object identifies its convention by exactly one of
+    its identifier fields, chosen with the precedence the conventions spec
+    fixes: its `uuid` if present; otherwise its `schema_url` if present;
+    otherwise its `spec_url`.
+    https://github.com/zarr-conventions/zarr-conventions-spec/blob/main/README.md#convention-metadata-object
+
+    So a declaration matches when its `uuid` is *uuid*; or, carrying no `uuid`,
+    when its `schema_url` is one of *schema_urls*; or, carrying neither, when
+    its `spec_url` is one of *spec_urls* (each any set or `{url: label}` map of
+    the URLs the convention recognizes). A lower-precedence field never rescues
+    a declaration: one that names a *different* uuid never matches, whatever
+    its URLs say, and one whose `schema_url` is unrecognized never matches,
+    whatever its `spec_url` says.
     """
     declared_uuid = cmo.get("uuid")
     if declared_uuid is not None:
         return declared_uuid == uuid
-    return cmo.get("schema_url") in schema_urls
+    schema_url = cmo.get("schema_url")
+    if schema_url is not None:
+        return schema_url in schema_urls
+    spec_url = cmo.get("spec_url")
+    return spec_url is not None and spec_url in spec_urls
 
 
 def find_declaration(
     cmos: Iterable[ConventionMetadataObject],
     uuid: str,
-    schema_urls: AbstractSet[str] | Mapping[str, str] = frozenset(),
+    schema_urls: _URLSet = frozenset(),
+    spec_urls: _URLSet = frozenset(),
 ) -> ConventionMetadataObject | None:
     """Return the first of *cmos* that declares the convention, or `None`.
 
     See `declares_convention` for the matching rule.
     """
     return next(
-        (cmo for cmo in cmos if declares_convention(cmo, uuid, schema_urls)), None
+        (cmo for cmo in cmos if declares_convention(cmo, uuid, schema_urls, spec_urls)),
+        None,
     )
 
 
 def convention_present(
     attrs: Mapping[str, JSONValue],
     uuid: str,
-    schema_urls: AbstractSet[str] | Mapping[str, str] = frozenset(),
+    schema_urls: _URLSet = frozenset(),
+    spec_urls: _URLSet = frozenset(),
 ) -> bool:
     """Report whether *attrs* declares the convention identified by *uuid*.
 
-    *schema_urls* lets declarations that carry only a `schema_url` count as
-    well; see `declares_convention`.
+    *schema_urls* and *spec_urls* let declarations that carry no `uuid` count
+    as well; see `declares_convention`.
     """
+    attrs = require_attributes(attrs)
     return (
         find_declaration(
             validate_convention_metadata_objects(attrs.get("zarr_conventions")),
             uuid,
             schema_urls,
+            spec_urls,
         )
         is not None
     )
@@ -340,7 +375,8 @@ def insert_convention(
     convention_data: Mapping[str, JSONValue],
     *,
     overwrite: bool = False,
-    schema_urls: AbstractSet[str] | Mapping[str, str] = frozenset(),
+    schema_urls: _URLSet = frozenset(),
+    spec_urls: _URLSet = frozenset(),
 ) -> JSONDict:
     """Insert convention metadata into an attributes dict.
 
@@ -355,7 +391,8 @@ def insert_convention(
     than leaving two entries claiming the same convention. An existing
     declaration is "the same convention" when it matches *cmo*'s `uuid`, or,
     carrying no `uuid`, when its `schema_url` is *cmo*'s own or one of
-    *schema_urls* (see `declares_convention`).
+    *schema_urls*, or, carrying neither, when its `spec_url` is *cmo*'s own or
+    one of *spec_urls* (see `declares_convention`).
 
     Args:
         attrs: The existing attributes dict.
@@ -364,7 +401,10 @@ def insert_convention(
         overwrite: Whether convention data may replace existing keys.
         schema_urls: Other schema_urls under which the convention may already
             be declared without a `uuid`.
+        spec_urls: Other spec_urls under which the convention may already be
+            declared without a `uuid` or `schema_url`.
     """
+    attrs = require_attributes(attrs)
     if not overwrite:
         collisions = set(attrs) & (set(convention_data) - {"zarr_conventions"})
         if collisions:
@@ -379,15 +419,14 @@ def insert_convention(
             declarations.append(extra)
 
     uuid = cmo.get("uuid")
-    schema_url = cmo.get("schema_url")
-    known_urls = set(schema_urls)
-    if schema_url is not None:
-        known_urls.add(schema_url)
+    known_schema_urls = _with_own_url(schema_urls, cmo.get("schema_url"))
+    known_spec_urls = _with_own_url(spec_urls, cmo.get("spec_url"))
     merged: list[ConventionMetadataObject] = []
     replaced = False
     for existing in declarations:
         same = existing == cmo or (
-            uuid is not None and declares_convention(existing, uuid, known_urls)
+            uuid is not None
+            and declares_convention(existing, uuid, known_schema_urls, known_spec_urls)
         )
         if same:
             if not replaced:
@@ -398,6 +437,13 @@ def insert_convention(
     if not replaced:
         merged.append(cmo)
     result["zarr_conventions"] = merged
+    return result
+
+
+def _with_own_url(urls: _URLSet, own: str | None) -> set[str]:
+    result = set(urls)
+    if own is not None:
+        result.add(own)
     return result
 
 
@@ -412,6 +458,7 @@ def extract_convention(
     is removed from `zarr_conventions` and the convention-specific keys
     are separated out.
     """
+    attrs = require_attributes(attrs)
     remaining: JSONDict = {}
     convention_data: JSONDict = {}
 
@@ -433,6 +480,22 @@ def extract_convention(
     return remaining, convention_data
 
 
+def _build_revision_map(
+    revisions: Mapping[str, tuple[str, AbstractSet[str]]], field: str
+) -> dict[str, str]:
+    result: dict[str, str] = {}
+    for label, (canonical, aliases) in revisions.items():
+        for url in (canonical, *aliases):
+            if url in result and result[url] != label:
+                msg = (
+                    f"{field} {url!r} is claimed by revisions "
+                    f"{result[url]!r} and {label!r}; a URL must identify one revision"
+                )
+                raise ValueError(msg)
+            result[url] = label
+    return result
+
+
 def build_revision_by_schema_url(
     revisions: Mapping[str, tuple[str, AbstractSet[str]]],
 ) -> dict[str, str]:
@@ -447,17 +510,43 @@ def build_revision_by_schema_url(
 
     Raises `ValueError` if any URL is claimed by more than one revision.
     """
-    result: dict[str, str] = {}
-    for label, (canonical, aliases) in revisions.items():
-        for url in (canonical, *aliases):
-            if url in result and result[url] != label:
-                msg = (
-                    f"schema_url {url!r} is claimed by revisions "
-                    f"{result[url]!r} and {label!r}; a URL must identify one revision"
-                )
-                raise ValueError(msg)
-            result[url] = label
-    return result
+    return _build_revision_map(revisions, "schema_url")
+
+
+def build_revision_by_spec_url(
+    revisions: Mapping[str, tuple[str, AbstractSet[str]]],
+) -> dict[str, str]:
+    """Build a convention's `{spec_url: revision label}` map from its revisions.
+
+    The `spec_url` counterpart of `build_revision_by_schema_url`: *revisions*
+    maps each label to `(SPEC_URL, ALIAS_SPEC_URLS)`, and a URL claimed by two
+    revisions raises `ValueError`.
+    """
+    return _build_revision_map(revisions, "spec_url")
+
+
+_NO_URLS: Final[Mapping[str, str]] = MappingProxyType({})
+
+
+def declared_revision(
+    cmo: ConventionMetadataObject,
+    revision_by_schema_url: Mapping[str, str],
+    revision_by_spec_url: Mapping[str, str] = _NO_URLS,
+) -> str | None:
+    """Return the revision label a declaration's URLs name, or `None`.
+
+    The same precedence as `declares_convention`: a declared `schema_url` is
+    looked up in *revision_by_schema_url*, and decides alone -- an unrecognized
+    one yields `None` whatever the `spec_url` says. Only a declaration with no
+    `schema_url` has its `spec_url` looked up in *revision_by_spec_url*.
+    """
+    schema_url = cmo.get("schema_url")
+    if schema_url is not None:
+        return revision_by_schema_url.get(schema_url)
+    spec_url = cmo.get("spec_url")
+    if spec_url is not None:
+        return revision_by_spec_url.get(spec_url)
+    return None
 
 
 def resolve_revision_label(
@@ -465,52 +554,54 @@ def resolve_revision_label(
     uuid: str,
     revision_by_schema_url: Mapping[str, str],
     convention_name: str,
+    revision_by_spec_url: Mapping[str, str] = _NO_URLS,
 ) -> str | None:
     """Return the revision label a document claims for a convention.
 
-    Returns the label whose `schema_url` matches the convention's CMO, or
-    `None` if the convention's `uuid` is present but its `schema_url` is
-    unrecognized (an older/newer/foreign revision). Raises `ValueError` if the
-    convention is absent (no CMO with *uuid*) -- asking which revision is present
-    for a convention that is not there is a caller error.
+    Returns the label its declaration's URLs name (see `declared_revision`),
+    or `None` if the convention is declared but at no recognized revision (an
+    older/newer/foreign URL, or a `uuid`-only declaration). Raises
+    `ValueError` if the convention is absent (see `declares_convention`) --
+    asking which revision is present for a convention that is not there is a
+    caller error.
     """
-    if not convention_present(attrs, uuid, revision_by_schema_url):
+    if not convention_present(
+        attrs, uuid, revision_by_schema_url, revision_by_spec_url
+    ):
         msg = f"convention {convention_name!r} is not present in attrs"
         raise ValueError(msg)
-    return detect_revision(attrs, uuid, revision_by_schema_url)
+    return detect_revision(attrs, uuid, revision_by_schema_url, revision_by_spec_url)
 
 
 def detect_revision(
     attrs: Mapping[str, JSONValue],
     uuid: str,
     revision_by_schema_url: Mapping[str, str],
+    revision_by_spec_url: Mapping[str, str] = _NO_URLS,
 ) -> str | None:
-    """Return the revision label whose recognized schema_urls include the document's.
+    """Return the revision label whose recognized URLs include the document's.
 
     Looks for a convention-metadata object in `attrs['zarr_conventions']`
     that declares the convention -- by *uuid*, or, for a declaration with no
-    `uuid`, by a `schema_url` in *revision_by_schema_url* (see
-    `declares_convention`). If found, looks its `schema_url` up in
-    *revision_by_schema_url* -- the convention's input type, every schema_url
-    any revision recognizes mapped to that revision's label. Returns `None` if
-    the convention is absent, or present but carrying a schema_url no revision
-    recognizes (a future or foreign URL). Callers must decide how to handle
-    that uncertainty; validation must not silently select the latest revision.
-
-    Entries in `zarr_conventions` are assumed to be CMO dicts (consistent
-    with the rest of this module).
+    `uuid`, by a `schema_url` in *revision_by_schema_url*, or, with neither, by
+    a `spec_url` in *revision_by_spec_url* (see `declares_convention`). If
+    found, returns the revision its URLs name (see `declared_revision`); the
+    two maps are the convention's input type, every URL any revision
+    recognizes mapped to that revision's label. Returns `None` if the
+    convention is absent, or present but naming no recognized revision (a
+    future or foreign URL). Callers must decide how to handle that
+    uncertainty; validation must not silently select the latest revision.
     """
+    attrs = require_attributes(attrs)
     cmo = find_declaration(
         validate_convention_metadata_objects(attrs.get("zarr_conventions")),
         uuid,
         revision_by_schema_url,
+        revision_by_spec_url,
     )
     if cmo is None:
         return None
-    schema_url = cmo.get("schema_url")
-    if isinstance(schema_url, str):
-        return revision_by_schema_url.get(schema_url)
-    return None
+    return declared_revision(cmo, revision_by_schema_url, revision_by_spec_url)
 
 
 __all__ = [
@@ -526,11 +617,13 @@ __all__ = [
     "NodeMetadataInput",
     "NodeType",
     "convention_present",
+    "declared_revision",
     "declares_convention",
     "detect_revision",
     "extract_convention",
     "find_declaration",
     "insert_convention",
+    "require_attributes",
     "resolve_revision_label",
     "validate_convention_metadata_object",
     "validate_convention_metadata_objects",

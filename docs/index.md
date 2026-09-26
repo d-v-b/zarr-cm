@@ -142,10 +142,35 @@ validation with `unsupported schema_url`, so unknown _future_ revisions are
 never silently misread. The [reading example](examples/reading.md) walks the
 full flow.
 
-A declaration may also identify its convention by `schema_url` alone (the spec
-requires a `uuid`, a `schema_url`, or a `spec_url` — any one). A
-`zarr_conventions` entry with no `uuid` but a recognized `schema_url` is
-detected, validated, and extracted exactly like one that carries the `uuid`.
+`spec_url`s work the same way. Each revision writes one `SPEC_URL` and
+recognizes its `ALIAS_SPEC_URLS` too: the `blob/v1` spec URLs that the draft
+schemas required next to the `refs/tags/v1` schema URLs (for `r2`), and the
+commit-pinned spec URLs that earlier `zarr-cm` releases wrote (for `proj` and
+`spatial` `r3`). Each convention package combines them into
+`REVISION_BY_SPEC_URL`.
+
+### Identifying a declaration
+
+The spec requires a declaration to carry at least one of `uuid`, `schema_url`,
+or `spec_url`, and it fixes which one identifies the convention: the `uuid` if
+present; otherwise the `schema_url`; otherwise the `spec_url`. zarr-cm follows
+that order:
+
+- An entry with a `uuid` declares the convention with that `uuid`, whatever its
+  URLs say.
+- An entry with no `uuid` but a `schema_url` declares a convention only if the
+  convention recognizes that `schema_url`. If the `schema_url` is unrecognized,
+  the entry does not declare the convention, even if its `spec_url` is one the
+  convention recognizes.
+- An entry with only a `spec_url` declares a convention only if the convention
+  recognizes that `spec_url`.
+
+Such entries are detected, validated, and extracted exactly like entries that
+carry the `uuid`. The revision comes from the `schema_url` if there is one, and
+otherwise from the `spec_url`. If the `schema_url` is unrecognized, validation
+fails. If there is no `schema_url` and the `spec_url` is unrecognized, the entry
+names no revision: `detect` returns `None` and validation uses the latest
+revision, as for an entry that carries only a `uuid`.
 
 ### Group-level spatial metadata
 

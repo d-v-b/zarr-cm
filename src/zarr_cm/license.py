@@ -71,11 +71,19 @@ RECOGNIZED_SCHEMA_URLS: Final[frozenset[str]] = frozenset(
 )
 """Every schema_url this revision reads as its own: `SCHEMA_URL` plus aliases."""
 
+ALIAS_SPEC_URLS: Final[frozenset[str]] = frozenset()
+"""Other spec_urls this revision recognizes: none besides `SPEC_URL`."""
+
+RECOGNIZED_SPEC_URLS: Final[frozenset[str]] = frozenset({SPEC_URL, *ALIAS_SPEC_URLS})
+"""Every spec_url this revision reads as its own: `SPEC_URL` plus aliases."""
+
 CONVENTION_KEYS: Final = {"license"}
 
 REVISION_BY_SCHEMA_URL: Final[dict[str, str]] = dict.fromkeys(
     {SCHEMA_URL, *ALIAS_SCHEMA_URLS}, "v1"
 )
+
+REVISION_BY_SPEC_URL: Final[dict[str, str]] = dict.fromkeys(RECOGNIZED_SPEC_URLS, "v1")
 
 
 def detect(attrs: Mapping[str, JSONValue]) -> str | None:
@@ -85,7 +93,9 @@ def detect(attrs: Mapping[str, JSONValue]) -> str | None:
     known schema_url, `None` if present with an unrecognized schema_url, and
     raises `ValueError` if the convention is absent.
     """
-    return resolve_revision_label(attrs, UUID, REVISION_BY_SCHEMA_URL, "license")
+    return resolve_revision_label(
+        attrs, UUID, REVISION_BY_SCHEMA_URL, "license", REVISION_BY_SPEC_URL
+    )
 
 
 def create(
@@ -143,6 +153,7 @@ def insert(
         {"license": data},
         overwrite=overwrite,
         schema_urls=RECOGNIZED_SCHEMA_URLS,
+        spec_urls=RECOGNIZED_SPEC_URLS,
     )
 
 
@@ -153,7 +164,9 @@ def extract(
     remaining, convention_data = extract_convention(
         attrs,
         CONVENTION_KEYS,
-        lambda cmo: declares_convention(cmo, UUID, RECOGNIZED_SCHEMA_URLS),
+        lambda cmo: declares_convention(
+            cmo, UUID, RECOGNIZED_SCHEMA_URLS, RECOGNIZED_SPEC_URLS
+        ),
     )
     if not convention_data:
         return remaining, LicenseAttrs()
@@ -187,7 +200,11 @@ def validate(data: Mapping[str, JSONValue]) -> LicenseAttrs:
 def _validate_context(context: NodeContext) -> None:
     """Validate license against an already prepared node."""
     data = node_convention_data(
-        context, CMO, CONVENTION_KEYS, schema_urls=RECOGNIZED_SCHEMA_URLS
+        context,
+        CMO,
+        CONVENTION_KEYS,
+        schema_urls=RECOGNIZED_SCHEMA_URLS,
+        spec_urls=RECOGNIZED_SPEC_URLS,
     )
     if "license" not in data:
         msg = "'license' is required"

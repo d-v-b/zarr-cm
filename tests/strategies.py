@@ -40,8 +40,10 @@ numbers: st.SearchStrategy[float] = st.one_of(finite_floats, st.integers(-1000, 
 
 json_values: st.SearchStrategy[Any] = st.recursive(
     st.none() | st.booleans() | st.integers() | finite_floats | st.text(max_size=10),
-    lambda inner: st.lists(inner, max_size=3)
-    | st.dictionaries(st.text(max_size=8), inner, max_size=3),
+    lambda inner: (
+        st.lists(inner, max_size=3)
+        | st.dictionaries(st.text(max_size=8), inner, max_size=3)
+    ),
     max_leaves=6,
 )
 
@@ -268,6 +270,26 @@ def revision_selections(
     """A non-empty choice of conventions, one revision each: a `create_many` input."""
     names = draw(st.sets(st.sampled_from(sorted(zarr_cm.CONVENTION_NAMES)), min_size=1))
     return {name: draw(st.sampled_from(BY_CONVENTION[name])) for name in sorted(names)}
+
+
+def own_declarations(rev: Revision) -> st.SearchStrategy[dict[str, str]]:
+    """A `zarr_conventions` entry declaring *rev* by any identifiers it recognizes.
+
+    Draws `uuid`, `schema_url` and `spec_url` independently -- each URL one
+    this revision recognizes, canonical or alias -- keeping every combination
+    that names a URL: schema_url-only, spec_url-only, both, and each with or
+    without the `uuid`. (A `uuid`-only entry declares the convention but no
+    revision, so it is left out.) Whichever field the spec's identifier
+    precedence (uuid > schema_url > spec_url) selects, it names *rev*.
+    """
+    return st.fixed_dictionaries(
+        {},
+        optional={
+            "uuid": st.just(rev.module.UUID),
+            "schema_url": st.sampled_from(sorted(rev.module.RECOGNIZED_SCHEMA_URLS)),
+            "spec_url": st.sampled_from(sorted(rev.module.RECOGNIZED_SPEC_URLS)),
+        },
+    ).filter(lambda d: "schema_url" in d or "spec_url" in d)
 
 
 # --- things that are *not* ours -----------------------------------------------

@@ -25,6 +25,7 @@ from zarr_cm._core import (
     Metadata,
     NodeMetadataInput,
     build_revision_by_schema_url,
+    build_revision_by_spec_url,
     resolve_revision_label,
 )
 from zarr_cm._node import (
@@ -64,6 +65,7 @@ __all__ = [
     "CONVENTION_KEYS",
     "LATEST",
     "REVISION_BY_SCHEMA_URL",
+    "REVISION_BY_SPEC_URL",
     "SCHEMA_URL",
     "SPEC_URL",
     "UUID",
@@ -90,6 +92,8 @@ __all__ = [
 class _RevisionModule(NamedTuple):
     SCHEMA_URL: str
     ALIAS_SCHEMA_URLS: frozenset[str]
+    SPEC_URL: str
+    ALIAS_SPEC_URLS: frozenset[str]
     create: typing.Callable[..., typing.Mapping[str, JSONValue]]
     insert: typing.Callable[..., JSONDict]
     validate: typing.Callable[..., typing.Mapping[str, JSONValue]]
@@ -102,6 +106,8 @@ _REVISIONS: Final[dict[str, _RevisionModule]] = {
     "r2": _RevisionModule(
         _r2.SCHEMA_URL,
         _r2.ALIAS_SCHEMA_URLS,
+        _r2.SPEC_URL,
+        _r2.ALIAS_SPEC_URLS,
         _r2.create,
         _r2.insert,
         _r2.validate,
@@ -112,6 +118,8 @@ _REVISIONS: Final[dict[str, _RevisionModule]] = {
     "r3": _RevisionModule(
         _r3.SCHEMA_URL,
         _r3.ALIAS_SCHEMA_URLS,
+        _r3.SPEC_URL,
+        _r3.ALIAS_SPEC_URLS,
         _r3.create,
         _r3.insert,
         _r3.validate,
@@ -145,12 +153,25 @@ validate normally. A URL outside this map is unrecognized: `detect` reports
 `None`, and validation refuses rather than guessing.
 """
 
+REVISION_BY_SPEC_URL: Final[dict[str, str]] = build_revision_by_spec_url(
+    {label: (mod.SPEC_URL, mod.ALIAS_SPEC_URLS) for label, mod in _REVISIONS.items()}
+)
+"""Every spec_url this convention recognizes, mapped to its revision label.
+
+The `spec_url` counterpart of `REVISION_BY_SCHEMA_URL`, built the same way
+from each revision's `SPEC_URL` and `ALIAS_SPEC_URLS`. It identifies a
+declaration that carries neither `uuid` nor `schema_url`, and names the
+revision of one that carries no `schema_url`; a declared `schema_url` always
+takes precedence over the `spec_url`.
+"""
+
 
 def _resolve_read_revision(attrs: Mapping[str, JSONValue], revision: str | None) -> str:
     return resolve_attributes_revision(
         attrs,
         uuid=UUID,
         revision_by_schema_url=REVISION_BY_SCHEMA_URL,
+        revision_by_spec_url=REVISION_BY_SPEC_URL,
         latest=LATEST,
         convention_name="spatial",
         requested=revision,
@@ -164,7 +185,9 @@ def detect(attrs: Mapping[str, JSONValue]) -> str | None:
     present but at an unrecognized revision. Raises `ValueError` if the spatial
     convention is absent from *attrs*.
     """
-    return resolve_revision_label(attrs, UUID, REVISION_BY_SCHEMA_URL, "spatial")
+    return resolve_revision_label(
+        attrs, UUID, REVISION_BY_SCHEMA_URL, "spatial", REVISION_BY_SPEC_URL
+    )
 
 
 def _revision(label: str) -> _RevisionModule:
@@ -361,6 +384,7 @@ def validate_group_metadata(
         context,
         uuid=UUID,
         revision_by_schema_url=REVISION_BY_SCHEMA_URL,
+        revision_by_spec_url=REVISION_BY_SPEC_URL,
         latest=LATEST,
         convention_name="spatial",
         requested=revision,
@@ -406,6 +430,7 @@ def validate_array_metadata(
         context,
         uuid=UUID,
         revision_by_schema_url=REVISION_BY_SCHEMA_URL,
+        revision_by_spec_url=REVISION_BY_SPEC_URL,
         latest=LATEST,
         convention_name="spatial",
         requested=revision,

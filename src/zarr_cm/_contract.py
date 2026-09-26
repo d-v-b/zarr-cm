@@ -17,7 +17,8 @@ if TYPE_CHECKING:
 class ConventionModule(Protocol):
     """Structural contract every convention module (and revision submodule) satisfies.
 
-    Pins the dispatch surface: the constants `UUID`/`SCHEMA_URL`/`SPEC_URL`/
+    Pins the dispatch surface: the constants `UUID`/`SCHEMA_URL`/
+    `ALIAS_SCHEMA_URLS`/`SPEC_URL`/`ALIAS_SPEC_URLS`/
     `CMO`/`CONVENTION_KEYS`, the attributes-level operations
     `create`/`create_convention_attrs`/`insert`/`extract`/`validate`, and the
     node-level operations `validate_group_metadata`/`validate_array_metadata`/
@@ -44,6 +45,8 @@ class ConventionModule(Protocol):
     def ALIAS_SCHEMA_URLS(self) -> frozenset[str]: ...
     @property
     def SPEC_URL(self) -> str: ...
+    @property
+    def ALIAS_SPEC_URLS(self) -> frozenset[str]: ...
     @property
     def CMO(self) -> ConventionMetadataObject: ...
     @property

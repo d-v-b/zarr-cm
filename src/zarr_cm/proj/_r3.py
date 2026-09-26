@@ -99,6 +99,21 @@ RECOGNIZED_SCHEMA_URLS: Final[frozenset[str]] = frozenset(
 )
 """Every schema_url this revision reads as its own: `SCHEMA_URL` plus aliases."""
 
+ALIAS_SPEC_URLS: Final[frozenset[str]] = frozenset(
+    {
+        f"https://github.com/zarr-conventions/proj/blob/{_COMMIT}/README.md",
+    }
+)
+"""Other spec_urls this revision recognizes as its own identity.
+
+The commit-pinned URL is the spec_url earlier `zarr-cm` releases wrote
+alongside the commit-pinned schema_url in `ALIAS_SCHEMA_URLS`; documents
+carrying it must still read as this revision.
+"""
+
+RECOGNIZED_SPEC_URLS: Final[frozenset[str]] = frozenset({SPEC_URL, *ALIAS_SPEC_URLS})
+"""Every spec_url this revision reads as its own: `SPEC_URL` plus aliases."""
+
 CONVENTION_KEYS: Final = {"proj:code", "proj:wkt2", "proj:projjson"}
 
 _CODE_PATTERN: Final = re.compile(r"^[^:]+:[^:]+$")
@@ -149,7 +164,12 @@ def insert(
 ) -> JSONDict:
     """Insert proj (r3) convention metadata into an attributes dict."""
     return insert_convention(
-        attrs, CMO, data, overwrite=overwrite, schema_urls=RECOGNIZED_SCHEMA_URLS
+        attrs,
+        CMO,
+        data,
+        overwrite=overwrite,
+        schema_urls=RECOGNIZED_SCHEMA_URLS,
+        spec_urls=RECOGNIZED_SPEC_URLS,
     )
 
 
@@ -160,7 +180,9 @@ def extract(
     remaining, convention_data = extract_convention(
         attrs,
         CONVENTION_KEYS,
-        lambda cmo: declares_convention(cmo, UUID, RECOGNIZED_SCHEMA_URLS),
+        lambda cmo: declares_convention(
+            cmo, UUID, RECOGNIZED_SCHEMA_URLS, RECOGNIZED_SPEC_URLS
+        ),
     )
     return remaining, cast("GeoProjAttrs", convention_data)
 
@@ -199,7 +221,11 @@ def _validate_context(context: NodeContext) -> None:
     """Validate proj against an already prepared node."""
     validate(
         node_convention_data(
-            context, CMO, CONVENTION_KEYS, schema_urls=RECOGNIZED_SCHEMA_URLS
+            context,
+            CMO,
+            CONVENTION_KEYS,
+            schema_urls=RECOGNIZED_SCHEMA_URLS,
+            spec_urls=RECOGNIZED_SPEC_URLS,
         )
     )
 

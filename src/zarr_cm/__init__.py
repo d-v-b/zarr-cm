@@ -29,6 +29,7 @@ from ._core import (
     Metadata,
     NodeMetadataInput,
     find_declaration,
+    require_attributes,
     validate_convention_metadata_object,
     validate_convention_metadata_objects,
     validate_json_object,
@@ -85,6 +86,7 @@ class _ConventionModule(NamedTuple):
     CMO: ConventionMetadataObject
     CONVENTION_KEYS: set[str]
     REVISION_BY_SCHEMA_URL: Mapping[str, str]
+    REVISION_BY_SPEC_URL: Mapping[str, str]
     validate: typing.Callable[..., object]
     insert: typing.Callable[..., JSONDict]
     extract: typing.Callable[..., tuple[JSONDict, object]]
@@ -102,6 +104,7 @@ _REGISTRY: Final[dict[CanonicalConventionName, _ConventionModule]] = {
         proj.CMO,
         proj.CONVENTION_KEYS,
         proj.REVISION_BY_SCHEMA_URL,
+        proj.REVISION_BY_SPEC_URL,
         proj.validate,
         proj.insert,
         proj.extract,
@@ -115,6 +118,7 @@ _REGISTRY: Final[dict[CanonicalConventionName, _ConventionModule]] = {
         spatial.CMO,
         spatial.CONVENTION_KEYS,
         spatial.REVISION_BY_SCHEMA_URL,
+        spatial.REVISION_BY_SPEC_URL,
         spatial.validate,
         spatial.insert,
         spatial.extract,
@@ -128,6 +132,7 @@ _REGISTRY: Final[dict[CanonicalConventionName, _ConventionModule]] = {
         multiscales.CMO,
         multiscales.CONVENTION_KEYS,
         multiscales.REVISION_BY_SCHEMA_URL,
+        multiscales.REVISION_BY_SPEC_URL,
         multiscales.validate,
         multiscales.insert,
         multiscales.extract,
@@ -141,6 +146,7 @@ _REGISTRY: Final[dict[CanonicalConventionName, _ConventionModule]] = {
         license_.CMO,
         license_.CONVENTION_KEYS,
         license_.REVISION_BY_SCHEMA_URL,
+        license_.REVISION_BY_SPEC_URL,
         license_.validate,
         license_.insert,
         license_.extract,
@@ -151,6 +157,7 @@ _REGISTRY: Final[dict[CanonicalConventionName, _ConventionModule]] = {
         uom.CMO,
         uom.CONVENTION_KEYS,
         uom.REVISION_BY_SCHEMA_URL,
+        uom.REVISION_BY_SPEC_URL,
         uom.validate,
         uom.insert,
         uom.extract,
@@ -161,6 +168,7 @@ _REGISTRY: Final[dict[CanonicalConventionName, _ConventionModule]] = {
         stac.CMO,
         stac.CONVENTION_KEYS,
         stac.REVISION_BY_SCHEMA_URL,
+        stac.REVISION_BY_SPEC_URL,
         stac.validate,
         stac.insert,
         stac.extract,
@@ -367,13 +375,17 @@ def _detect_conventions(
 
     A declaration counts if its `uuid` is a known convention's, or -- for a
     declaration carrying no `uuid` -- if its `schema_url` is one that
-    convention recognizes. See `_core.declares_convention`.
+    convention recognizes, or -- carrying neither -- if its `spec_url` is. See
+    `_core.declares_convention`.
     """
+    attrs = require_attributes(attrs)
     conventions = validate_convention_metadata_objects(attrs.get("zarr_conventions"))
     return frozenset(
         name
         for name, mod in _REGISTRY.items()
-        if find_declaration(conventions, mod.UUID, mod.REVISION_BY_SCHEMA_URL)
+        if find_declaration(
+            conventions, mod.UUID, mod.REVISION_BY_SCHEMA_URL, mod.REVISION_BY_SPEC_URL
+        )
         is not None
     )
 
@@ -418,6 +430,7 @@ def validate_many(
     Returns:
         The input `attrs`, unchanged.
     """
+    attrs = require_attributes(attrs)
     for name in conventions:
         mod = _get_module(name)
         rk = _read_rev_kwargs(mod, revisions, name, attrs)
@@ -444,7 +457,7 @@ def insert_many(
     Returns:
         A new attributes dict with all convention data merged in.
     """
-    result = dict(attrs)
+    result = dict(require_attributes(attrs))
     for name, data in conventions.items():
         mod = _get_module(name)
         rk = _rev_kwargs(mod, revisions, name)
@@ -470,7 +483,7 @@ def extract_many(
         `(remaining_attrs, extracted)`, where `extracted` maps convention names
         to their convention data.
     """
-    remaining = dict(attrs)
+    remaining = dict(require_attributes(attrs))
     extracted: dict[ConventionName, JSONDict] = {}
     for name in conventions:
         mod = _get_module(name)
