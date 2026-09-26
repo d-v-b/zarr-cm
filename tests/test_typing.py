@@ -179,6 +179,7 @@ def test_array_validation_preserves_base_metadata_types() -> None:
         "chunk_key_encoding": {"name": "default"},
         "fill_value": 0.0,
         "codecs": ({"name": "bytes"},),
+        "dimension_names": ("y", "x"),
         "attributes": attrs,
     }
 

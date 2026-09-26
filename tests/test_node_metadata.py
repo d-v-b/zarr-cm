@@ -57,7 +57,7 @@ def test_valid_documents_pass() -> None:
     """Reasonable node/convention combinations validate, at every layer."""
     cases: list[tuple[Any, Any]] = [
         # spatial: dimensions on an array, a bare footprint on a group
-        (spatial, array_node(_spatial_grid())),
+        (spatial, {**array_node(_spatial_grid()), "dimension_names": ["y", "x"]}),
         (spatial, group_node(_spatial_grid())),
         (spatial, group_node(_spatial_footprint())),
         # proj and license apply to both node types

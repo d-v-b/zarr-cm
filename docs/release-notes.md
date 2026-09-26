@@ -10,6 +10,26 @@ carries the full pull-request list.
 <!-- Keep the newest version at the top. Sections: Highlights, Added, Changed,
 Fixed, Breaking, Internal — include only the ones with content. -->
 
+## Unreleased
+
+### Fixed
+
+- `spatial` node-level validation (`validate_array_metadata`,
+  `validate_node_metadata`, both revisions) now enforces the spec's rule that
+  every `spatial:dimensions` entry names one of the array's `dimension_names`,
+  so an array carrying `spatial:dimensions` must declare `dimension_names`.
+- `spatial` node-level validation now checks the `spatial:shape` and
+  `spatial:transform` overrides inside `multiscales.layout` items (and that
+  `multiscales`, its `layout` and each layout item have the right JSON type), as
+  the upstream schema does. Previously a group with, say,
+  `"spatial:shape": [0, 1]` in a layout item validated.
+
+### Breaking
+
+- `spatial.validate_array_metadata` rejects arrays that carry
+  `spatial:dimensions` without a matching top-level `dimension_names`. Such
+  documents already violated the spatial spec.
+
 ## 0.5.0 — 2026-09-25
 
 ### Highlights

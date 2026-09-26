@@ -175,8 +175,8 @@ print(sorted(attributes))
 `validate` sees only an attributes dict, so it cannot check the rules that
 depend on which kind of node the attributes belong to. The node-level entry
 points take a whole `zarr.json` document and can: `spatial` requires
-`spatial:dimensions` on arrays but not on groups, and `multiscales` applies to
-groups only.
+`spatial:dimensions` on arrays but not on groups — each entry naming one of the
+array's `dimension_names` — and `multiscales` applies to groups only.
 
 `validate_node_metadata` dispatches on the document's `node_type` to
 `validate_array_metadata` or `validate_group_metadata`. Every convention module
