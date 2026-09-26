@@ -1,0 +1,102 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/R-CF/zarr_convention_ref/main/schema.json",
+  "title": "External Reference Convention",
+  "description": "Schema for referencing Zarr objects external to the current Zarr object",
+  "type": "object",
+  "properties": {
+    "zarr_format": {
+      "type": "integer",
+      "description": "Zarr format version"
+    },
+    "node_type": {
+      "type": "string",
+      "enum": ["array", "group"],
+      "description": "Type of Zarr node"
+    },
+    "attributes": {
+      "type": "object",
+      "description": "Zarr attributes containing convention metadata and properties",
+      "properties": {
+        "zarr_conventions": {
+          "type": "array",
+          "description": "Array of convention metadata objects",
+          "contains": {
+            "$ref": "#/$defs/conventionMetadata"
+          }
+        },
+        "ref": {
+          "$ref": "#/$defs/ref"
+        }
+      },
+      "required": ["zarr_conventions", "ref"]
+    }
+  },
+  "required": ["zarr_format", "node_type", "attributes"],
+  "additionalProperties": true,
+  "$defs": {
+    "conventionMetadata": {
+      "type": "object",
+      "description": "Convention metadata object for use in zarr_conventions array",
+      "properties": {
+        "schema_url": {
+          "type": "string",
+          "const": "https://raw.githubusercontent.com/R-CF/zarr_convention_ref/main/schema.json",
+          "description": "URL to the JSON Schema definition for this convention"
+        },
+        "spec_url": {
+          "type": "string",
+          "const": "https://raw.githubusercontent.com/R-CF/zarr_convention_ref/main/README.md",
+          "description": "URL to the full specification document"
+        },
+        "uuid": {
+          "type": "string",
+          "const": "d89b30cf-ed8c-43d5-9a16-b492f0cd8786",
+          "description": "UUID that permanently identifies this convention"
+        },
+        "name": {
+          "type": "string",
+          "description": "ref"
+        },
+        "description": {
+          "type": "string",
+          "const": "External Reference Convention",
+          "description": "Schema for referencing external Zarr objects"
+        }
+      },
+      "anyOf": [
+        {
+          "required": ["schema_url"]
+        },
+        {
+          "required": ["spec_url"]
+        },
+        {
+          "required": ["uuid"]
+        }
+      ],
+      "additionalProperties": false
+    },
+    "ref": {
+      "type": "object",
+      "description": "External Reference Convention",
+      "properties": {
+        "uri": {
+          "type": "string",
+          "description": "Uniform Resource Identifier for an external store where the referenced object is defined."
+        },
+        "node": {
+          "type": "string",
+          "description": "Path to the group or array where the referenced object is defined."
+        },
+        "attribute": {
+          "type": "string",
+          "pattern": "^(|(/([^~/]|~[01])*)*)$",
+          "description": "JSON pointer to the attribute being referenced."
+        }
+      },
+      "required": ["node"],
+      "additionalProperties": false
+    }
+  }
+}

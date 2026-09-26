@@ -16,7 +16,7 @@ if typing.TYPE_CHECKING:
     from collections.abc import Iterable, Mapping
 
 from . import license as license_
-from . import multiscales, proj, spatial, stac, uom
+from . import multiscales, proj, ref, spatial, stac, uom
 from ._core import (
     ArrayMetadata,
     ArrayMetadataInput,
@@ -53,6 +53,7 @@ from .multiscales import (
     Transform,
     TransformR2,
 )
+from .ref import RefAttrs, RefConventionAttrs
 from .spatial import (
     SpatialAttrs,
     SpatialAttrsR2,
@@ -65,7 +66,7 @@ from .stac import StacAttrs, StacConventionAttrs, StacLink
 from .uom import UCUM, UomAttrs, UomConventionAttrs
 
 ConventionName = Literal[
-    "proj", "spatial", "multiscales", "license", "uom", "stac", "geo-proj"
+    "proj", "spatial", "multiscales", "license", "uom", "stac", "ref", "geo-proj"
 ]
 """Display names accepted by the multi-convention functions.
 
@@ -75,7 +76,7 @@ everywhere a name is taken as input, but functions that *report* names
 """
 
 CanonicalConventionName = Literal[
-    "proj", "spatial", "multiscales", "license", "uom", "stac"
+    "proj", "spatial", "multiscales", "license", "uom", "stac", "ref"
 ]
 """The canonical subset of `ConventionName` (no aliases)."""
 
@@ -166,6 +167,16 @@ _REGISTRY: Final[dict[CanonicalConventionName, _ConventionModule]] = {
         stac.extract,
         stac.detect,
     ),
+    "ref": _ConventionModule(
+        ref.UUID,
+        ref.CMO,
+        ref.CONVENTION_KEYS,
+        ref.REVISION_BY_SCHEMA_URL,
+        ref.validate,
+        ref.insert,
+        ref.extract,
+        ref.detect,
+    ),
 }
 
 CONVENTION_ALIASES: Final[dict[str, CanonicalConventionName]] = {"geo-proj": "proj"}
@@ -181,6 +192,7 @@ ALL_CONVENTION_KEYS: Final = frozenset(
     | license_.CONVENTION_KEYS
     | uom.CONVENTION_KEYS
     | stac.CONVENTION_KEYS
+    | ref.CONVENTION_KEYS
 )
 
 MultiConventionAttrs = TypedDict(
@@ -209,6 +221,8 @@ MultiConventionAttrs = TypedDict(
         "stac:collection": NotRequired[JSONDict],
         "stac:key": NotRequired[str],
         "stac:link": NotRequired[StacLink],
+        # ref
+        "ref": NotRequired[RefAttrs],
     },
     extra_items=JSONValue,
 )
@@ -569,6 +583,8 @@ __all__ = [
     "MultiscalesConventionAttrs",
     "MultiscalesConventionAttrsR2",
     "NodeMetadataInput",
+    "RefAttrs",
+    "RefConventionAttrs",
     "SpatialAttrs",
     "SpatialAttrsR2",
     "SpatialAttrsR3",

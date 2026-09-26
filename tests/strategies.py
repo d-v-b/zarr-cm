@@ -22,7 +22,7 @@ from hypothesis import strategies as st
 
 import zarr_cm
 from zarr_cm import license as license_
-from zarr_cm import multiscales, proj, spatial, stac, uom
+from zarr_cm import multiscales, proj, ref, spatial, stac, uom
 
 if TYPE_CHECKING:
     from types import ModuleType
@@ -163,6 +163,35 @@ STAC_KWARGS: st.SearchStrategy[Kwargs] = st.sampled_from(
     )
 )
 
+# --- ref -----------------------------------------------------------------
+
+# Without a `uri` the node path is relative to the referencing node; with one
+# it is absolute from the external store's root (see `ref.validate`).
+_REF_RELATIVE_NODE = text.filter(lambda s: not s.startswith("/"))
+_REF_ABSOLUTE_NODE = text.map(lambda s: "/" + s)
+
+
+def _json_pointer_segment(segment: str) -> str:
+    return segment.replace("~", "~0").replace("/", "~1")
+
+
+_REF_ATTRIBUTE = st.lists(st.text(max_size=8), max_size=3).map(
+    lambda segments: "".join("/" + _json_pointer_segment(s) for s in segments)
+)
+
+REF_KWARGS: st.SearchStrategy[Kwargs] = st.one_of(
+    st.fixed_dictionaries(
+        {"node": _REF_RELATIVE_NODE, "attribute": optional(_REF_ATTRIBUTE)}
+    ),
+    st.fixed_dictionaries(
+        {
+            "uri": text,
+            "node": _REF_ABSOLUTE_NODE,
+            "attribute": optional(_REF_ATTRIBUTE),
+        }
+    ),
+).map(drop_none)
+
 
 # --- the registry ------------------------------------------------------------
 
@@ -240,6 +269,8 @@ REVISIONS: tuple[Revision, ...] = (
     ),
     Revision("uom", None, uom, uom, _schema("uom.json"), "array", UOM_KWARGS),
     Revision("stac", None, stac, stac, _schema("stac.json"), "group", STAC_KWARGS),
+    # ref applies to both node types; either would do.
+    Revision("ref", None, ref, ref, _schema("ref.json"), "array", REF_KWARGS),
 )
 
 REVISIONED: tuple[Revision, ...] = tuple(r for r in REVISIONS if r.label is not None)

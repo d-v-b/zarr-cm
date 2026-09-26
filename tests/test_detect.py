@@ -4,7 +4,7 @@ import pytest
 
 import zarr_cm
 from zarr_cm import license as license_
-from zarr_cm import multiscales, proj, spatial, stac, uom
+from zarr_cm import multiscales, proj, ref, spatial, stac, uom
 
 
 def test_spatial_detect_known_revisions() -> None:
@@ -126,3 +126,22 @@ def test_stac_detect_unknown_url_returns_none() -> None:
 def test_stac_detect_absent_raises() -> None:
     with pytest.raises(ValueError, match="stac"):
         stac.detect({"foo": "bar"})
+
+
+def test_ref_detect_present_returns_r1() -> None:
+    doc = ref.insert({}, ref.create(node="../sibling"))
+    assert ref.detect(doc) == "r1"
+
+
+def test_ref_detect_unknown_url_returns_none() -> None:
+    other = "https://example/other.json"
+    doc = {
+        "ref": {"node": "../sibling"},
+        "zarr_conventions": [{"uuid": ref.UUID, "schema_url": other}],
+    }
+    assert ref.detect(doc) is None
+
+
+def test_ref_detect_absent_raises() -> None:
+    with pytest.raises(ValueError, match="ref"):
+        ref.detect({"foo": "bar"})

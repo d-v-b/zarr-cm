@@ -53,3 +53,7 @@
 ## stac
 
 ::: zarr_cm.stac
+
+## ref
+
+::: zarr_cm.ref
